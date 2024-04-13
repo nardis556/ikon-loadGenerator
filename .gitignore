@@ -1,5 +1,5 @@
 .env*
 src/*.log
-src/test.ts
+src/*test*
 logs/*.log
 node_modules
