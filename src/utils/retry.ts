@@ -3,7 +3,6 @@ import { setTimeout } from "timers/promises";
 
 export async function retry<T>(
   fn: () => Promise<T>,
-  exitOnFail: boolean = false,
   maxRetries: number = 5,
   delay: number = 1000
 ): Promise<T> {

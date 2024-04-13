@@ -1,3 +1,5 @@
+import * as idex from "@idexio/idex-sdk-ikon"
+
 export interface AccountInfo {
   walletAddress: string;
   privateKey: string;
@@ -7,4 +9,13 @@ export interface AccountInfo {
 
 export interface Account {
   [key: string]: AccountInfo;
+}
+
+export interface IClient {
+  RestAuthenticatedClient: idex.RestAuthenticatedClient;
+  RestPublicClient: idex.RestPublicClient;
+  getWalletAndNonce: {
+    wallet: string;
+    nonce: string;
+  };
 }

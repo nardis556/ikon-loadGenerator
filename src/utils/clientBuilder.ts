@@ -1,4 +1,5 @@
 import * as idex from "@idexio/idex-sdk-ikon";
+import { IClient } from "./IAaccounts.ts";
 import { v1 as uuidv1 } from "uuid";
 import logger from "./logger.ts";
 const ethers = require("ethers");
@@ -38,20 +39,12 @@ if (!hasEnv) {
 const chainIdToNum: number = Number(env.CHAIN_ID);
 const sandboxToBool: boolean = env.SANDBOX === "true";
 
-export interface IClient {
-  client: idex.RestAuthenticatedClient;
-  wallet: {
-    wallet: string;
-    nonce: string;
-  };
-}
-
 export const clientBuilder = async (
   apiKey: string,
   apiSecret: string,
   walletPrivateKey: string
 ): Promise<IClient> => {
-  const client = new idex.RestAuthenticatedClient({
+  const RestAuthenticatedClient = new idex.RestAuthenticatedClient({
     apiKey: apiKey,
     apiSecret: apiSecret,
     walletPrivateKey: walletPrivateKey,
@@ -60,18 +53,21 @@ export const clientBuilder = async (
     sandbox: sandboxToBool,
     exchangeContractAddress: process.env.EXCHANGE_CONTRACT_ADDRESS,
   });
+  const RestPublicClient: idex.RestPublicClient =
+    RestAuthenticatedClient.public;
 
   const wallet = {
-    wallet: ethers.computeAddress(walletPrivateKey),
+    address: ethers.computeAddress(walletPrivateKey),
     get nonce() {
       return uuidv1();
     },
   };
 
   return {
-    client,
-    wallet: {
-      wallet: wallet.wallet,
+    RestAuthenticatedClient,
+    RestPublicClient,
+    getWalletAndNonce: {
+      wallet: wallet.address,
       nonce: wallet.nonce,
     },
   } satisfies IClient;

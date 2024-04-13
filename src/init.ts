@@ -14,14 +14,14 @@ const initAuth = {
 
 const envMarkets = process.env.MARKETS ? process.env.MARKETS.split(",") : [];
 
-const fetchMarkets = async (): Promise<IDEXMarket[]> => {
+export const fetchMarkets = async (): Promise<IDEXMarket[]> => {
   try {
     const client = await clientBuilder(
       initAuth.apiKey,
       initAuth.apiSecret,
       initAuth.walletPrivateKey
     );
-    const markets = await client.client.public.getMarkets();
+    const markets = await client.RestPublicClient.getMarkets();
 
     const filteredMarkets = markets.filter((market) =>
       envMarkets.includes(`${market.baseAsset}-${market.quoteAsset}`)
@@ -44,9 +44,3 @@ const fetchMarkets = async (): Promise<IDEXMarket[]> => {
     process.exit(1);
   }
 };
-
-export default {
-  fetchMarkets,
-};
-
-fetchMarkets().catch(console.error);
