@@ -3,7 +3,7 @@ import { setTimeout } from "timers/promises";
 
 export async function retry<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 5,
+  maxRetries: number = 2,
   delay: number = 1000
 ): Promise<T> {
   let error: Error | null | any = null;

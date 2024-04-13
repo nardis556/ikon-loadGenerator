@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { AccountInfo, Account } from "./IAaccounts.ts";
-import logger from "./logger.ts";
+import { AccountInfo, Account } from "./utils/IAaccounts.ts";
+import logger from "./utils/logger.ts";
 
-export function getAccounts(): Record<string, AccountInfo> {
-  const filePath = path.resolve(__dirname, "../../.env.ACCOUNTS");
+export function fetchAccounts(): Record<string, AccountInfo> {
+  const filePath = path.resolve(__dirname, "../.env.ACCOUNTS");
   const fileContent = fs.readFileSync(filePath, "utf8");
   const lines = fileContent.split("\n");
   const accounts: Record<string, AccountInfo> = {};

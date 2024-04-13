@@ -53,22 +53,22 @@ export const clientBuilder = async (
     sandbox: sandboxToBool,
     exchangeContractAddress: process.env.EXCHANGE_CONTRACT_ADDRESS,
   });
+
   const RestPublicClient: idex.RestPublicClient =
     RestAuthenticatedClient.public;
 
   const wallet = {
     address: ethers.computeAddress(walletPrivateKey),
-    get nonce() {
-      return uuidv1();
-    },
   };
 
   return {
     RestAuthenticatedClient,
     RestPublicClient,
-    getWalletAndNonce: {
-      wallet: wallet.address,
-      nonce: wallet.nonce,
+    get getWalletAndNonce() {
+      return {
+        wallet: wallet.address,
+        nonce: uuidv1(),
+      };
     },
   } satisfies IClient;
 };
