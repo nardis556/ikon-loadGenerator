@@ -1,4 +1,6 @@
-.env*
+.env
+.env.ORDERS
+.env.ACCOUNTS
 src/*.log
 src/tests*
 logs/*.log
