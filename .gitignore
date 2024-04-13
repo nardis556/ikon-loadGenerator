@@ -1,2 +1,4 @@
 .env*
 src/*.log
+logs/*.log
+node_modules

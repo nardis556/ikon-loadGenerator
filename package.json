@@ -1,0 +1,23 @@
+{
+  "name": "ikon-loadgenerator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@idexio/idex-sdk-ikon": "^3.33.2",
+    "ethers": "^6.11.1",
+    "i": "^0.3.7",
+    "npm": "^10.5.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@tsconfig/recommended": "^1.0.6",
+    "@types/uuid": "^9.0.8"
+  },
+  "type": "commonjs"
+}

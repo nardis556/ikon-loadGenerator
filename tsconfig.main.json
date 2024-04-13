@@ -1,0 +1,21 @@
+{
+    // @see https://github.com/tsconfig/bases#centralized-recommendations-for-tsconfig-bases
+    "extends": ["./node_modules/@tsconfig/node20/tsconfig.json"],
+    "compilerOptions": {
+      "rootDir": "./",
+      "baseUrl": "./",
+      "declaration": true,
+      "declarationMap": true,
+      "sourceMap": true,
+      "lib": ["esnext"],
+      "isolatedModules": true,
+      "allowJs": true,
+      "useUnknownInCatchVariables": false,
+      // does not cut off type hints as early
+      "noErrorTruncation": true
+      // "verbatimModuleSyntax": true
+    },
+    "include": ["./src/**/*.ts"],
+    "exclude": ["node_modules", "dist"]
+  }
+  
