@@ -104,11 +104,7 @@ const main = async () => {
               1.5 *
               (1 * (1 + Math.floor(Math.random() * 5.55)));
 
-            if (quantity < Number(market.makerOrderMinimum)) {
-              quantity = Number(market.makerOrderMinimum);
-            }
-
-            const orderParams = generateOrderTemplate(
+            const orderParams: any = generateOrderTemplate(
               Number(market.indexPrice),
               quantity,
               market.quantityRes,
@@ -118,6 +114,10 @@ const main = async () => {
               `${market.baseAsset}-${market.quoteAsset}`,
               side
             );
+
+            if (quantity < Number(market.makerOrderMinimum)) {
+              orderParams.quantity = market.makerOrderMinimum;
+            }
 
             for (const orderParam of orderParams) {
               try {
