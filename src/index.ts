@@ -101,8 +101,8 @@ const main = async () => {
 
             let quantity =
               Number(market.makerOrderMinimum) *
-              1.5 *
-              (1 * (1 + Math.floor(Math.random() * 5.55)));
+              Number(process.env.PRICE_ALPHA_FACTOR) *
+              (1 * (1 + Math.floor(Math.random() * Number(process.env.PRICE_BETA_FACTOR))));
 
             const orderParams: any = generateOrderTemplate(
               Number(market.indexPrice),
@@ -115,12 +115,11 @@ const main = async () => {
               side
             );
 
-            if (quantity < Number(market.makerOrderMinimum)) {
-              orderParams.quantity = market.makerOrderMinimum;
-            }
-
             for (const orderParam of orderParams) {
               try {
+                if (orderParam.quantity < Number(market.makerOrderMinimum)) {
+                  orderParam.quantity = market.makerOrderMinimum;
+                }
                 // console.log(orderParam);
                 const order = await retry(() => {
                   return client.RestAuthenticatedClient.createOrder({
