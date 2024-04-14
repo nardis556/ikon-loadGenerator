@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { generateOrderTemplate } from "./utils/generators";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env.ORDERS") });
 
 const main = async () => {
   logger.info("Starting main function");
@@ -45,6 +46,8 @@ const main = async () => {
     try {
       const markets = await fetchMarkets();
       for (const [accountKey, client] of Object.entries(clients)) {
+        let totalOrdersCount = 0;
+
         for (const market of markets) {
           try {
             const openPositions = await retry(() =>
@@ -61,24 +64,29 @@ const main = async () => {
               })
             );
 
-            if (openOrders.length > 230) {
+            totalOrdersCount += openOrders.length; // Update total order count
+
+            if (totalOrdersCount > 240) {
               if (!previousMarket) {
                 previousMarket = `${market.baseAsset}-${market.quoteAsset}`;
-                await retry(() =>
-                  client.RestAuthenticatedClient.cancelOrders({
-                    ...client.getWalletAndNonce,
-                  })
-                );
               }
-              await retry(() =>
+              const cancelledOrders = await retry(() =>
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                   market: previousMarket,
                 })
               );
-              logger.info(
-                `Cancelling orders for ${accountKey} on market ${previousMarket}`
-              );
+
+              if (cancelledOrders && cancelledOrders.length) {
+                totalOrdersCount -= cancelledOrders.length;
+                logger.info(
+                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} on market ${previousMarket}.`
+                );
+              } else {
+                logger.info(
+                  `No orders cancelled for ${accountKey} on market ${previousMarket}.`
+                );
+              }
             }
 
             if (
@@ -86,25 +94,23 @@ const main = async () => {
               Number(openPositions[0].maximumQuantity) > 0
             ) {
               side = idex.OrderSide.sell;
-              logger.info(
-                `Position is positive on market ${market.baseAsset}-${market.quoteAsset}, placing ${side}`
-              );
             } else if (
               openPositions.length !== 0 &&
               Number(openPositions[0].maximumQuantity) < 0
             ) {
               side = idex.OrderSide.buy;
-              logger.info(
-                `Position is negative on market ${market.baseAsset}-${market.quoteAsset}, placing ${side}`
-              );
             }
 
             let quantity =
               Number(market.makerOrderMinimum) *
-              Number(process.env.PRICE_ALPHA_FACTOR) *
-              (1 * (1 + Math.floor(Math.random() * Number(process.env.PRICE_BETA_FACTOR))));
+              Number(process.env.QUANTITY_ALPHA_FACTOR) *
+              (1 *
+                (1 +
+                  Math.floor(
+                    Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                  )));
 
-            const orderParams: any = generateOrderTemplate(
+            const orderParams = generateOrderTemplate(
               Number(market.indexPrice),
               quantity,
               market.quantityRes,
@@ -116,25 +122,22 @@ const main = async () => {
             );
 
             for (const orderParam of orderParams) {
-              try {
-                if (orderParam.quantity < Number(market.makerOrderMinimum)) {
-                  orderParam.quantity = market.makerOrderMinimum;
-                }
-                // console.log(orderParam);
-                const order = await retry(() => {
-                  return client.RestAuthenticatedClient.createOrder({
-                    ...orderParam,
-                    ...client.getWalletAndNonce,
-                  });
+              if (orderParam.quantity < Number(market.makerOrderMinimum)) {
+                orderParam.quantity = market.makerOrderMinimum;
+              }
+              const order = await retry(() => {
+                return client.RestAuthenticatedClient.createOrder({
+                  ...orderParam,
+                  ...client.getWalletAndNonce,
                 });
-                logger.info(
-                  `Created order for ${accountKey} on market ${market.baseAsset}-${market.quoteAsset}: ${order.orderId}`
-                );
-              } catch (e) {
-                logger.error(
-                  `Error creating order for ${accountKey} on market ${market.baseAsset}-${market.quoteAsset}: ${e.message}`
-                );
-                logger.error(e.stack);
+              });
+              totalOrdersCount++;
+              logger.info(
+                `Created ${orderParam.side} order for ${accountKey} on market ${market.baseAsset}-${market.quoteAsset}: ${order.orderId}`
+              );
+              if (totalOrdersCount >= 240) {
+                logger.warn(`Approaching order limit for ${accountKey}`);
+                break;
               }
             }
 
@@ -144,10 +147,12 @@ const main = async () => {
               `Error handling market operations for ${accountKey} on market ${market.baseAsset}-${market.quoteAsset}: ${e.message}`
             );
           }
+          side =
+            side === idex.OrderSide.buy
+              ? idex.OrderSide.sell
+              : idex.OrderSide.buy;
         }
       }
-      side =
-        side === idex.OrderSide.buy ? idex.OrderSide.sell : idex.OrderSide.buy;
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
     }
