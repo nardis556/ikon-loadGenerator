@@ -62,25 +62,13 @@ async function execLoop(
     try {
       const markets = await fetchMarkets();
       for (const [accountKey, client] of Object.entries(clients)) {
-        let totalOrdersCount = 0;
-
         for (const market of markets) {
-          if (
-            previousMarket &&
-            previousMarket !== `${market.baseAsset}-${market.quoteAsset}`
-          ) {
-            const cancelledOrders = await retry(() =>
-              client.RestAuthenticatedClient.cancelOrders({
-                ...client.getWalletAndNonce,
-                market: previousMarket,
-              })
-            );
-          }
-
+          const marketID = `${market.baseAsset}-${market.quoteAsset}`;
+          let totalOrdersCount: number;
           try {
             const openPositions = await retry(() =>
               client.RestAuthenticatedClient.getPositions({
-                market: `${market.baseAsset}-${market.quoteAsset}`,
+                market: marketID,
                 ...client.getWalletAndNonce,
               })
             );
@@ -92,29 +80,19 @@ async function execLoop(
               })
             );
 
-            totalOrdersCount += openOrders.length;
+            totalOrdersCount = +openOrders.length;
 
-            if (totalOrdersCount > Number(process.env.OPEN_ORDERS)) {
-              if (!previousMarket) {
-                previousMarket = `${market.baseAsset}-${market.quoteAsset}`;
-              }
+            if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
               const cancelledOrders = await retry(() =>
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
-                  market: previousMarket,
+                  market: marketID,
                 })
               );
-
-              if (cancelledOrders && cancelledOrders.length) {
-                totalOrdersCount -= cancelledOrders.length;
-                logger.info(
-                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} on market ${previousMarket}.`
-                );
-              } else {
-                logger.info(
-                  `No orders cancelled for ${accountKey} on market ${previousMarket}.`
-                );
-              }
+              totalOrdersCount -= cancelledOrders.length;
+              logger.info(
+                `Cancelled ${cancelledOrders.length} orders for ${accountKey} on market ${marketID} due to limit exceedance.`
+              );
             }
 
             if (
@@ -129,14 +107,13 @@ async function execLoop(
               side = idex.OrderSide.buy;
             }
 
-            let quantity =
+            const quantity =
               Number(market.makerOrderMinimum) *
               Number(process.env.QUANTITY_ALPHA_FACTOR) *
-              (1 *
-                (1 +
-                  Math.floor(
-                    Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-                  )));
+              (1 +
+                Math.floor(
+                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                ));
 
             const orderParams = generateOrderTemplate(
               Number(market.indexPrice),
@@ -146,7 +123,7 @@ async function execLoop(
               market.priceRes,
               market.iterations,
               market.priceIncrement,
-              `${market.baseAsset}-${market.quoteAsset}`,
+              marketID,
               side
             );
 
@@ -154,38 +131,43 @@ async function execLoop(
               if (orderParam.quantity < Number(market.makerOrderMinimum)) {
                 orderParam.quantity = market.makerOrderMinimum;
               }
-              const order = await retry(() => {
-                return client.RestAuthenticatedClient.createOrder({
-                  ...orderParam,
-                  ...client.getWalletAndNonce,
-                });
-              });
-              totalOrdersCount++;
-              logger.info(
-                `Created ${orderParam.side} order for ${accountKey} at ${orderParam?.price} on market ${market.baseAsset}-${market.quoteAsset}`
-              );
               if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-                logger.warn(
-                  `Approaching order limit for ${accountKey}. Cancelling orders from previous market ${previousMarket}.`
-                );
                 const cancelledOrders = await retry(() =>
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
                     market: previousMarket,
                   })
                 );
-                const cancelledAmount = cancelledOrders.length;
-                totalOrdersCount -= cancelledAmount;
+                totalOrdersCount -= cancelledOrders.length;
+                logger.info(
+                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} on market ${previousMarket} due to limit exceedance.`
+                );
                 break;
+              } else {
+                totalOrdersCount++;
+                const order = await retry(() => {
+                  return client.RestAuthenticatedClient.createOrder({
+                    ...orderParam,
+                    ...client.getWalletAndNonce,
+                  });
+                });
+                let sideIdentifier =
+                  side === idex.OrderSide.buy ? "BUY " : "SELL";
+                let price = orderParam.price || "market";
+                logger.info(
+                  `${accountKey} ${marketID} ${sideIdentifier} order for at ${price}. ${totalOrdersCount}`
+                );
               }
             }
 
-            previousMarket = `${market.baseAsset}-${market.quoteAsset}`;
+            previousMarket = marketID;
           } catch (e) {
             logger.error(
-              `Error handling market operations for ${accountKey} on market ${market.baseAsset}-${market.quoteAsset}: ${e.message}`
+              `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
           }
+
+          // Ensure we switch sides for the next market
           side =
             side === idex.OrderSide.buy
               ? idex.OrderSide.sell
