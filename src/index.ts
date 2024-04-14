@@ -42,6 +42,22 @@ const main = async () => {
     await initializeCancels(accounts, clients);
   }
 
+  ({ previousMarket, side } = await execLoop(
+    clients,
+    previousMarket,
+    side as idex.OrderSide
+  ));
+};
+
+main().catch((error) => {
+  logger.error("Error during main function:", error);
+});
+
+async function execLoop(
+  clients: { [key: string]: IClient },
+  previousMarket: string,
+  side: idex.OrderSide
+) {
   while (true) {
     try {
       const markets = await fetchMarkets();
@@ -49,6 +65,18 @@ const main = async () => {
         let totalOrdersCount = 0;
 
         for (const market of markets) {
+          if (
+            previousMarket &&
+            previousMarket !== `${market.baseAsset}-${market.quoteAsset}`
+          ) {
+            const cancelledOrders = await retry(() =>
+              client.RestAuthenticatedClient.cancelOrders({
+                ...client.getWalletAndNonce,
+                market: previousMarket,
+              })
+            );
+          }
+
           try {
             const openPositions = await retry(() =>
               client.RestAuthenticatedClient.getPositions({
@@ -64,9 +92,9 @@ const main = async () => {
               })
             );
 
-            totalOrdersCount += openOrders.length; // Update total order count
+            totalOrdersCount += openOrders.length;
 
-            if (totalOrdersCount > 240) {
+            if (totalOrdersCount > Number(process.env.OPEN_ORDERS)) {
               if (!previousMarket) {
                 previousMarket = `${market.baseAsset}-${market.quoteAsset}`;
               }
@@ -113,6 +141,7 @@ const main = async () => {
             const orderParams = generateOrderTemplate(
               Number(market.indexPrice),
               quantity,
+              Number(market.takerOrderMinimum),
               market.quantityRes,
               market.priceRes,
               market.iterations,
@@ -133,10 +162,20 @@ const main = async () => {
               });
               totalOrdersCount++;
               logger.info(
-                `Created ${orderParam.side} order for ${accountKey} on market ${market.baseAsset}-${market.quoteAsset}: ${order.orderId}`
+                `Created ${orderParam.side} order for ${accountKey} at ${orderParam?.price} on market ${market.baseAsset}-${market.quoteAsset}`
               );
-              if (totalOrdersCount >= 240) {
-                logger.warn(`Approaching order limit for ${accountKey}`);
+              if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
+                logger.warn(
+                  `Approaching order limit for ${accountKey}. Cancelling orders from previous market ${previousMarket}.`
+                );
+                const cancelledOrders = await retry(() =>
+                  client.RestAuthenticatedClient.cancelOrders({
+                    ...client.getWalletAndNonce,
+                    market: previousMarket,
+                  })
+                );
+                const cancelledAmount = cancelledOrders.length;
+                totalOrdersCount -= cancelledAmount;
                 break;
               }
             }
@@ -157,8 +196,5 @@ const main = async () => {
       logger.error(`Error fetching markets: ${e.message}`);
     }
   }
-};
-
-main().catch((error) => {
-  logger.error("Error during main function:", error);
-});
+  return { previousMarket, side };
+}

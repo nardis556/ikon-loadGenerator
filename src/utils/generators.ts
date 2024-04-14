@@ -3,13 +3,49 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 
+
+/**
+ * PREVIOUS LOGIC
+ * PREVIOUS LOGIC
+ * PREVIOUS LOGIC
+ * NOT VIABLE FOR PRICES THAT ARE 1 DIGIT INTEGERS
+ */
+// export function randomDust(value: number, resolution: string) {
+//   const valueParts = String(value).split(".");
+//   const valueInt = valueParts[0];
+//   let valueDec = valueParts[1] || "0";
+
+//   const stepSizeParts = resolution.split(".");
+//   const stepDec = stepSizeParts[1] || "0";
+//   const zeroCount = stepDec.length - stepDec.replace(/0+$/, "").length;
+
+//   if (zeroCount === 8) {
+//     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+//     const randInt = Math.floor(value) + Math.floor(Math.random() * magnitude);
+//     const result = randInt.toFixed(8);
+//     return result;
+//   }
+
+//   const nonZeroDecimals = stepDec.length - zeroCount;
+
+//   const maxRandom = 10 ** nonZeroDecimals;
+//   let randomDec = Math.floor(Math.random() * maxRandom);
+
+//   const randomDecStr = String(randomDec).padStart(nonZeroDecimals, "0");
+
+//   const resultDec = randomDecStr + "0".repeat(zeroCount);
+//   const result = parseFloat(valueInt + "." + resultDec);
+
+//   return result.toFixed(stepDec.length);
+// }
+
+
 /**
  *
  * @param value value to generate random dust for 1
  * @param resolution resolution to generate dust for. e.g. "0.00000001" would be 8 decimals to randomize
  * @returns random dust value
  */
-
 export function randomDust(value: number, resolution: string) {
   const valueParts = String(value).split(".");
   const valueInt = valueParts[0];
@@ -27,13 +63,18 @@ export function randomDust(value: number, resolution: string) {
   }
 
   const nonZeroDecimals = stepDec.length - zeroCount;
-
   const maxRandom = 10 ** nonZeroDecimals;
   let randomDec = Math.floor(Math.random() * maxRandom);
-
   const randomDecStr = String(randomDec).padStart(nonZeroDecimals, "0");
 
-  const resultDec = randomDecStr + "0".repeat(zeroCount);
+  let resultDec = randomDecStr + "0".repeat(zeroCount);
+
+  if (valueInt.length === 1 && nonZeroDecimals >= 3) {
+    const thirdDecimal = parseInt(valueDec[2] || '0');
+    let randomizedThird = Math.floor(Math.random() * (thirdDecimal + 1));
+    resultDec = valueDec.substring(0, 2) + randomizedThird.toString() + "0".repeat(zeroCount + stepDec.length - 3);
+  }
+
   const result = parseFloat(valueInt + "." + resultDec);
 
   return result.toFixed(stepDec.length);
@@ -54,6 +95,7 @@ export function randomDust(value: number, resolution: string) {
 export function generateOrderTemplate(
   midPrice: number,
   quantity: number,
+  takerOrderMinimum: number,
   quantityRes: string,
   priceRes: string,
   iterations: number,
@@ -104,7 +146,16 @@ export function generateOrderTemplate(
         market: market,
         side: side === "sell" ? "buy" : "sell",
         type: idex.OrderType.market,
-        quantity: randomDust(quantity, quantityRes),
+        quantity: randomDust(
+          Number(takerOrderMinimum) *
+            Number(process.env.QUANTITY_ALPHA_FACTOR) *
+            (1 *
+              (1 +
+                Math.floor(
+                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                ))),
+          quantityRes
+        ),
       };
     } else {
       const triggerPriceModifier = Math.random() > 0.5 ? 1 : -1;
@@ -120,7 +171,16 @@ export function generateOrderTemplate(
             Math.random() > 0.5
               ? idex.OrderType.stopLossMarket
               : idex.OrderType.takeProfitMarket,
-          quantity: randomDust(quantity, quantityRes),
+          quantity: randomDust(
+            Number(takerOrderMinimum) *
+              Number(process.env.QUANTITY_ALPHA_FACTOR) *
+              (1 *
+                (1 +
+                  Math.floor(
+                    Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                  ))),
+            quantityRes
+          ),
           triggerPrice: randomDust(triggerPrice, priceRes),
           triggerType:
             Math.random() > 0.5
