@@ -7,7 +7,10 @@ import logger from "./utils/logger";
 import { retry } from "./utils/retry";
 import dotenv from "dotenv";
 import path from "path";
+import { setTimeout } from "timers/promises";
 import { generateOrderTemplate } from "./utils/generators";
+import { db } from "./utils/mysqlConnector";
+import { optimizedAppearDataAttribute } from "framer-motion";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env.ORDERS") });
 
@@ -41,11 +44,17 @@ const main = async () => {
   if (process.env.INITIALIZE_CANCELS === "true") {
     await initializeCancels(accounts, clients);
   }
+  const database = new db();
+
+  if (process.env.WRITE_TO_DB === "true") {
+    await database.connect();
+  }
 
   ({ previousMarket, side } = await execLoop(
     clients,
     previousMarket,
-    side as idex.OrderSide
+    side as idex.OrderSide,
+    database
   ));
 };
 
@@ -56,7 +65,8 @@ main().catch((error) => {
 async function execLoop(
   clients: { [key: string]: IClient },
   previousMarket: string,
-  side: idex.OrderSide
+  side: idex.OrderSide,
+  database: db
 ) {
   while (true) {
     try {
@@ -151,12 +161,29 @@ async function execLoop(
                     ...client.getWalletAndNonce,
                   });
                 });
+                const datetime = new Date(order.time)
+                  .toISOString()
+                  .slice(0, 19)
+                  .replace("T", " ");
+
+                process.env.WRITE_TO_DB === "true" &&
+                  (await database.writeToCreateOrder(
+                    datetime,
+                    client.getWalletAndNonce.wallet,
+                    order.orderId
+                    // order
+                  ));
                 let sideIdentifier =
                   side === idex.OrderSide.buy ? "BUY " : "SELL";
                 let price = orderParam.price || "market";
                 logger.info(
                   `${accountKey} ${marketID} ${sideIdentifier} order for at ${price}. ${totalOrdersCount}`
                 );
+
+                process.env.COOLDOWN === "true" &&
+                  (await setTimeout(
+                    Number(process.env.COOLDOWN_PER_ORDER) * 1000
+                  ));
               }
             }
 
@@ -172,7 +199,22 @@ async function execLoop(
             side === idex.OrderSide.buy
               ? idex.OrderSide.sell
               : idex.OrderSide.buy;
+          const cooldownMessage =
+            process.env.COOLDOWN === "true"
+              ? `cooldown for ${process.env.COOLDOWN_PER_MARKET} seconds`
+              : "";
+          process.env.COOLDOWN === "true" &&
+            (await setTimeout(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
         }
+        const cooldownMessage =
+          process.env.COOLDOWN === "true"
+            ? `cooldown for ${process.env.COOLDOWN_PER_ACCOUNT} seconds`
+            : "";
+        logger.info(
+          `Finished processing markets for ${accountKey}. ${cooldownMessage}`
+        );
+        process.env.COOLDOWN === "true" &&
+          (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
