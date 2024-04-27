@@ -10,13 +10,12 @@ import path from "path";
 import { setTimeout } from "timers/promises";
 import { generateOrderTemplate } from "./utils/generators";
 import { db } from "./utils/mysqlConnector";
-import { optimizedAppearDataAttribute } from "framer-motion";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env.ORDERS") });
 
 const main = async () => {
   logger.info("Starting main function");
-  let side: idex.OrderSide = process.env.SIDE as idex.OrderSide;
+  let initSide: idex.OrderSide = process.env.SIDE as idex.OrderSide;
   let previousMarket: string;
   const accounts = fetchAccounts();
   const clients: { [key: string]: IClient } = {};
@@ -50,12 +49,12 @@ const main = async () => {
     await database.connect();
   }
 
-  ({ previousMarket, side } = await execLoop(
+  await execLoop(
     clients,
     previousMarket,
-    side as idex.OrderSide,
+    initSide as idex.OrderSide,
     database
-  ));
+  );
 };
 
 main().catch((error) => {
@@ -65,9 +64,10 @@ main().catch((error) => {
 async function execLoop(
   clients: { [key: string]: IClient },
   previousMarket: string,
-  side: idex.OrderSide,
+  initSide: idex.OrderSide,
   database: db
 ) {
+  let side: idex.OrderSide = initSide
   while (true) {
     try {
       const markets = await fetchMarkets();
@@ -107,12 +107,12 @@ async function execLoop(
 
             if (
               openPositions.length !== 0 &&
-              Number(openPositions[0].maximumQuantity) > 0
+              Number(openPositions[0].quantity) > (Number(market.maximumPositionSize) / 4)
             ) {
               side = idex.OrderSide.sell;
             } else if (
               openPositions.length !== 0 &&
-              Number(openPositions[0].maximumQuantity) < 0
+              Number(openPositions[0].quantity) < (Number(market.maximumPositionSize) / 4)
             ) {
               side = idex.OrderSide.buy;
             }
@@ -194,17 +194,16 @@ async function execLoop(
             );
           }
 
-          // Ensure we switch sides for the next market
-          side =
-            side === idex.OrderSide.buy
-              ? idex.OrderSide.sell
-              : idex.OrderSide.buy;
           const cooldownMessage =
             process.env.COOLDOWN === "true"
               ? `cooldown for ${process.env.COOLDOWN_PER_MARKET} seconds`
               : "";
           process.env.COOLDOWN === "true" &&
             (await setTimeout(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
+          side =
+            side === idex.OrderSide.buy
+              ? idex.OrderSide.sell
+              : idex.OrderSide.buy;
         }
         const cooldownMessage =
           process.env.COOLDOWN === "true"
