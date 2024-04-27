@@ -9,11 +9,13 @@
   "license": "ISC",
   "dependencies": {
     "@idexio/idex-sdk-ikon": "^3.33.2",
+    "dotenv": "^16.4.5",
     "ethers": "^6.11.1",
     "i": "^0.3.7",
     "mysql2": "^3.9.7",
     "npm": "^10.5.2",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "winston": "^3.13.0"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
