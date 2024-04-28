@@ -105,23 +105,11 @@ async function execLoop(
               );
             }
 
-            if (
-              openPositions.length !== 0 && Number(openPositions[0].quantity) > 0 &&
-              Math.abs(Number(openPositions[0].quantity)) > (Number(market.maximumPositionSize) / 8)
-            ) {
-              side = idex.OrderSide.sell;
-            } else if (
-              openPositions.length !== 0 && Number(openPositions[0].quantity) < 0 &&
-              Math.abs(Number(openPositions[0].quantity)) < (Number(market.maximumPositionSize) / 8)
-            ) {
-              side = idex.OrderSide.buy;
-            }
-
             // temp
             const orderBook = await retry(() =>
               client.RestPublicClient.getOrderBookLevel2({
                 market: marketID,
-                limit: 100
+                limit: 1000
               })
             );
 
@@ -136,6 +124,22 @@ async function execLoop(
             } else {
               side = idex.OrderSide.buy
             }
+
+
+            if (
+              openPositions.length !== 0 && Number(openPositions[0].quantity) > 0 &&
+              Math.abs(Number(openPositions[0].quantity)) > (Number(market.maximumPositionSize) / 2)
+            ) {
+              side = idex.OrderSide.sell;
+            } else if (
+              openPositions.length !== 0 && Number(openPositions[0].quantity) < 0 &&
+              Math.abs(Number(openPositions[0].quantity)) < (Number(market.maximumPositionSize) / 2)
+            ) {
+              side = idex.OrderSide.buy;
+            }
+
+            logger.info(`${side === 'buy' ? "Asks outweighs bids, placing BUY  orders" : "Bids outweighs asks, placing SELL orders"}`)
+
 
 
             const quantity =
