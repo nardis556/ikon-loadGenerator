@@ -106,16 +106,37 @@ async function execLoop(
             }
 
             if (
-              openPositions.length !== 0 &&
-              Number(openPositions[0].quantity) > (Number(market.maximumPositionSize) / 4)
+              openPositions.length !== 0 && Number(openPositions[0].quantity) > 0 &&
+              Math.abs(Number(openPositions[0].quantity)) > (Number(market.maximumPositionSize) / 8)
             ) {
               side = idex.OrderSide.sell;
             } else if (
-              openPositions.length !== 0 &&
-              Number(openPositions[0].quantity) < (Number(market.maximumPositionSize) / 4)
+              openPositions.length !== 0 && Number(openPositions[0].quantity) < 0 &&
+              Math.abs(Number(openPositions[0].quantity)) < (Number(market.maximumPositionSize) / 8)
             ) {
               side = idex.OrderSide.buy;
             }
+
+            // temp
+            const orderBook = await retry(() =>
+              client.RestPublicClient.getOrderBookLevel2({
+                market: marketID,
+                limit: 100
+              })
+            );
+
+            const calculateWeight = (orders: any) =>
+              orders.reduce((acc: any, [price, quantity]) => acc + (Number(price) * Number(quantity)), 0);
+
+            const bidsWeight = calculateWeight(orderBook.bids);
+            const asksWeight = calculateWeight(orderBook.asks);
+
+            if (bidsWeight > ((bidsWeight + asksWeight) / 2)) {
+              side = idex.OrderSide.sell
+            } else {
+              side = idex.OrderSide.buy
+            }
+
 
             const quantity =
               Number(market.makerOrderMinimum) *
@@ -212,6 +233,10 @@ async function execLoop(
         logger.info(
           `Finished processing markets for ${accountKey}. ${cooldownMessage}`
         );
+        side =
+          side === idex.OrderSide.buy
+            ? idex.OrderSide.sell
+            : idex.OrderSide.buy;
         process.env.COOLDOWN === "true" &&
           (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
       }
