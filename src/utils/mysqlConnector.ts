@@ -62,4 +62,20 @@ export class db {
 
     await this.write(query, values);
   }
+
+  async writeToErrorFromRetry(
+    datetime: string,
+    onRetry: number,
+    object: object
+  ): Promise<void> {
+    const query = `
+      INSERT INTO ${process.env.MYSQL_ERRORS_TABLE} (datetime, onRetry, errorObject)
+      VALUES (?, ?);
+    `;
+
+    const values = [datetime, onRetry ,JSON.stringify(object)];
+    // const values = [datetime, wallet, orderId, JSON.stringify(orderObject)];
+
+    await this.write(query, values);
+  }
 }

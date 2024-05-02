@@ -1,4 +1,4 @@
-import * as idex from "@idexio/idex-sdk-ikon"
+import * as idex from "@idexio/idex-sdk"
 
 export interface AccountInfo {
   walletAddress: string;

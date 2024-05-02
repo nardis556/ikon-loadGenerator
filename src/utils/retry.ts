@@ -1,5 +1,8 @@
 import logger from "./logger.ts";
 import { setTimeout } from "timers/promises";
+// import { db } from "./mysqlConnector.ts";
+
+// const database = new db()
 
 export async function retry<T>(
   fn: () => Promise<T>,
@@ -14,6 +17,11 @@ export async function retry<T>(
     } catch (e) {
       if (e.response) {
         error = e.response.data;
+        // const datetime = new Date()
+        //   .toISOString()
+        //   .slice(0, 19)
+        //   .replace("T", " ");
+        // await database.writeToErrorFromRetry(datetime, i, error)
       } else if (e.code) {
         error = e.code;
       }
@@ -24,6 +32,13 @@ export async function retry<T>(
       await setTimeout(delay);
     }
   }
+
+  const datetime = new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+
+  // await database.writeToErrorFromRetry(datetime, 9, error)
 
   throw new Error(
     `Function failed after ${maxRetries} attempts. Last error: ${JSON.stringify(

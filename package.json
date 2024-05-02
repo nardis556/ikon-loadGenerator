@@ -8,7 +8,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@idexio/idex-sdk-ikon": "^3.33.2",
+    "@idexio/idex-sdk": "^4.0.0-beta.4",
     "dotenv": "^16.4.5",
     "ethers": "^6.11.1",
     "i": "^0.3.7",

@@ -1,7 +1,7 @@
 import { fetchAccounts } from "./accountsParser";
 import { fetchMarkets, initializeAccounts, initializeCancels } from "./init";
 import { clientBuilder } from "./utils/clientBuilder";
-import * as idex from "@idexio/idex-sdk-ikon";
+import * as idex from "@idexio/idex-sdk";
 import { IClient } from "./utils/IAaccounts";
 import logger from "./utils/logger";
 import { retry } from "./utils/retry";
@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { setTimeout } from "timers/promises";
 import { generateOrderTemplate } from "./utils/generators";
-import { db } from "./utils/mysqlConnector";
+// import { db } from "./utils/mysqlConnector";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env.ORDERS") });
 
@@ -43,17 +43,17 @@ const main = async () => {
   if (process.env.INITIALIZE_CANCELS === "true") {
     await initializeCancels(accounts, clients);
   }
-  const database = new db();
+  // const database = new db();
 
-  if (process.env.WRITE_TO_DB === "true") {
-    await database.connect();
-  }
+  // if (process.env.WRITE_TO_DB === "true") {
+  //   await database.connect();
+  // }
 
   await execLoop(
     clients,
     previousMarket,
     initSide as idex.OrderSide,
-    database
+    // database
   );
 };
 
@@ -65,7 +65,7 @@ async function execLoop(
   clients: { [key: string]: IClient },
   previousMarket: string,
   initSide: idex.OrderSide,
-  database: db
+  // database: db
 ) {
   let side: idex.OrderSide = initSide
   while (true) {
@@ -101,7 +101,7 @@ async function execLoop(
               );
               totalOrdersCount -= cancelledOrders.length;
               logger.info(
-                `Cancelled ${cancelledOrders.length} orders for ${accountKey} on market ${marketID} due to limit exceedance.`
+                `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
               );
             }
 
@@ -128,12 +128,12 @@ async function execLoop(
 
             if (
               openPositions.length !== 0 && Number(openPositions[0].quantity) > 0 &&
-              Math.abs(Number(openPositions[0].quantity)) > (Number(market.maximumPositionSize) / 2)
+              Math.abs(Number(openPositions[0].quantity)) > (Number(market.maximumPositionSize) / 1.5)
             ) {
               side = idex.OrderSide.sell;
             } else if (
               openPositions.length !== 0 && Number(openPositions[0].quantity) < 0 &&
-              Math.abs(Number(openPositions[0].quantity)) < (Number(market.maximumPositionSize) / 2)
+              Math.abs(Number(openPositions[0].quantity)) < (Number(market.maximumPositionSize) / 1.5)
             ) {
               side = idex.OrderSide.buy;
             }
@@ -170,36 +170,42 @@ async function execLoop(
                 const cancelledOrders = await retry(() =>
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
-                    market: previousMarket,
+                    // market: previousMarket,
                   })
                 );
                 totalOrdersCount -= cancelledOrders.length;
                 logger.info(
-                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} on market ${previousMarket} due to limit exceedance.`
+                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
                 );
                 break;
               } else {
                 totalOrdersCount++;
+                logger.debug(JSON.stringify(orderParam, null, 2))
                 const order = await retry(() => {
                   return client.RestAuthenticatedClient.createOrder({
                     ...orderParam,
                     ...client.getWalletAndNonce,
                   });
                 });
-                const datetime = new Date(order.time)
-                  .toISOString()
-                  .slice(0, 19)
-                  .replace("T", " ");
+                logger.debug(JSON.stringify(order, null, 2))
+                // const datetime = new Date(order.time)
+                //   .toISOString()
+                //   .slice(0, 19)
+                //   .replace("T", " ");
 
-                process.env.WRITE_TO_DB === "true" &&
-                  (await database.writeToCreateOrder(
-                    datetime,
-                    client.getWalletAndNonce.wallet,
-                    order.orderId
-                    // order
-                  ));
-                let sideIdentifier =
-                  side === idex.OrderSide.buy ? "BUY " : "SELL";
+                // process.env.WRITE_TO_DB === "true" &&
+                //   (await database.writeToCreateOrder(
+                //     datetime,
+                //     client.getWalletAndNonce.wallet,
+                //     order.orderId
+                //     // order
+                //   ));
+                let sideIdentifier = side === idex.OrderSide.buy ? "BUY " : "SELL";
+
+                if (order.type.includes("market")) {
+                  sideIdentifier = sideIdentifier === "BUY " ? "SELL" : "BUY ";
+                }
+
                 let price = orderParam.price || "market";
                 logger.info(
                   `${accountKey} ${marketID} ${sideIdentifier} order for at ${price}. ${totalOrdersCount}`

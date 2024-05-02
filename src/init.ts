@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { clientBuilder } from "./utils/clientBuilder.ts";
 import logger from "./utils/logger.ts";
-import { IDEXMarket } from "@idexio/idex-sdk-ikon";
+import { IDEXMarket } from "@idexio/idex-sdk";
 import { retry } from "./utils/retry.ts";
 import { AccountInfo } from "../src/utils/IAaccounts";
 import { IClient } from "../src/utils/IAaccounts";
@@ -55,11 +55,11 @@ export const fetchMarkets = async (): Promise<ExtendedIDEXMarket[]> => {
           quantityRes: market.stepSize,
           priceIncrement: parseFloat(
             priceIncrements[`${market.baseAsset}-${market.quoteAsset}`] ||
-              "0.01"
+            "0.01"
           ),
           iterations: parseInt(
             iterationsConfig[`${market.baseAsset}-${market.quoteAsset}`] ||
-              "25",
+            "25",
             10
           ),
         })
@@ -69,6 +69,7 @@ export const fetchMarkets = async (): Promise<ExtendedIDEXMarket[]> => {
       (market) => `${market.baseAsset}-${market.quoteAsset}`
     );
     logger.info(`Fetched ${marketSymbols.join(", ")} markets.`);
+    logger.debug(JSON.stringify(filteredMarkets, null, 2))
     return filteredMarkets;
   } catch (e) {
     logger.error(

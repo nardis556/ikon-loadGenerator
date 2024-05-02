@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  app:
+    image: lars/ikon-loadgen-sandbox
+    env_file:
+      - .env.ORDERS
+      - .env.ACCOUNTS
+      - .env
+    volumes:
+      - .:/usr/src/app

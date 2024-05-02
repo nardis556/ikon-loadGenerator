@@ -1,4 +1,4 @@
-import * as idex from "@idexio/idex-sdk-ikon";
+import * as idex from "@idexio/idex-sdk";
 import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
@@ -18,12 +18,38 @@ export function randomDustQuantity(value: number, resolution: string) {
   const stepDec = stepSizeParts[1] || "0";
   const zeroCount = stepDec.length - stepDec.replace(/0+$/, "").length;
 
+  
+  if (resolution === "10.00000000") {
+    const decimalPlaces = resolution.split('.')[1].length;
+
+    let valueInt = Math.floor(value);
+    valueInt = valueInt - (valueInt % 10);
+
+    const zeros = '0'.repeat(decimalPlaces);
+
+    return `${valueInt}.${zeros}`;
+  }
+
+
   if (zeroCount === 8) {
     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
     const randInt = Math.floor(value) + Math.floor(Math.random() * magnitude);
     const result = randInt.toFixed(8);
     return result;
   }
+
+  if (zeroCount < 3) {
+    const decimalPlaces = resolution.split('.')[1].length;
+    const fixedDecimals = resolution.indexOf('1') - 2;
+    const randomizeDecimals = decimalPlaces - fixedDecimals;
+
+    const valueString = value.toFixed(decimalPlaces);
+    const fixedPart = valueString.substring(0, fixedDecimals + 2);
+    const randomPart = Math.floor(Math.random() * (10 ** randomizeDecimals)).toString().padStart(randomizeDecimals, '0');
+
+    return fixedPart + randomPart
+  }
+
 
   const nonZeroDecimals = stepDec.length - zeroCount;
 
@@ -52,6 +78,10 @@ export function randomDust(value: number, resolution: string) {
   const stepSizeParts = resolution.split(".");
   const stepDec = stepSizeParts[1] || "0";
   const zeroCount = stepDec.length - stepDec.replace(/0+$/, "").length;
+
+  if (resolution === "0.00000100") {
+    return Number(value.toFixed(6)).toFixed(8)
+  }
 
   if (zeroCount === 8) {
     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
@@ -183,12 +213,12 @@ function orderSelection(
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          Number(process.env.QUANTITY_ALPHA_FACTOR) *
-          (1 *
-            (1 +
-              Math.floor(
-                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-              ))),
+        Number(process.env.QUANTITY_ALPHA_FACTOR) *
+        (1 *
+          (1 +
+            Math.floor(
+              Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+            ))),
         quantityRes
       ),
     };
@@ -208,12 +238,12 @@ function orderSelection(
             : idex.OrderType.takeProfitMarket,
         quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            Number(process.env.QUANTITY_ALPHA_FACTOR) *
-            (1 *
-              (1 +
-                Math.floor(
-                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-                ))),
+          Number(process.env.QUANTITY_ALPHA_FACTOR) *
+          (1 *
+            (1 +
+              Math.floor(
+                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+              ))),
           quantityRes
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),

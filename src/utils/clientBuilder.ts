@@ -1,4 +1,4 @@
-import * as idex from "@idexio/idex-sdk-ikon";
+import * as idex from "@idexio/idex-sdk";
 import { IClient } from "./IAaccounts.ts";
 import { v1 as uuidv1 } from "uuid";
 import logger from "./logger.ts";
