@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   app:
-    image: nardis555/ikon-loadgen-sandbox
+    image: nardis555/ikon-loadgen
     env_file:
       - .env.ORDERS
       - .env.ACCOUNTS
