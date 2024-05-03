@@ -52,7 +52,7 @@ const main = async () => {
   await execLoop(
     clients,
     previousMarket,
-    initSide as idex.OrderSide,
+    initSide as idex.OrderSide
     // database
   );
 };
@@ -64,10 +64,10 @@ main().catch((error) => {
 async function execLoop(
   clients: { [key: string]: IClient },
   previousMarket: string,
-  initSide: idex.OrderSide,
+  initSide: idex.OrderSide
   // database: db
 ) {
-  let side: idex.OrderSide = initSide
+  let side: idex.OrderSide = initSide;
   while (true) {
     try {
       const markets = await fetchMarkets();
@@ -109,38 +109,49 @@ async function execLoop(
             const orderBook = await retry(() =>
               client.RestPublicClient.getOrderBookLevel2({
                 market: marketID,
-                limit: 1000
+                limit: 1000,
               })
             );
 
             const calculateWeight = (orders: any) =>
-              orders.reduce((acc: any, [price, quantity]) => acc + (Number(price) * Number(quantity)), 0);
+              orders.reduce(
+                (acc: any, [price, quantity]) =>
+                  acc + Number(price) * Number(quantity),
+                0
+              );
 
             const bidsWeight = calculateWeight(orderBook.bids);
             const asksWeight = calculateWeight(orderBook.asks);
 
-            if (bidsWeight > ((bidsWeight + asksWeight) / 2)) {
-              side = idex.OrderSide.sell
+            if (bidsWeight > (bidsWeight + asksWeight) / 2) {
+              side = idex.OrderSide.sell;
             } else {
-              side = idex.OrderSide.buy
+              side = idex.OrderSide.buy;
             }
 
-
             if (
-              openPositions.length !== 0 && Number(openPositions[0].quantity) > 0 &&
-              Math.abs(Number(openPositions[0].quantity)) > (Number(market.maximumPositionSize) / 1.5)
+              openPositions.length !== 0 &&
+              Number(openPositions[0].quantity) > 0 &&
+              Math.abs(Number(openPositions[0].quantity)) >
+                Number(market.maximumPositionSize) / 1.5
             ) {
               side = idex.OrderSide.sell;
             } else if (
-              openPositions.length !== 0 && Number(openPositions[0].quantity) < 0 &&
-              Math.abs(Number(openPositions[0].quantity)) < (Number(market.maximumPositionSize) / 1.5)
+              openPositions.length !== 0 &&
+              Number(openPositions[0].quantity) < 0 &&
+              Math.abs(Number(openPositions[0].quantity)) <
+                Number(market.maximumPositionSize) / 1.5
             ) {
               side = idex.OrderSide.buy;
             }
 
-            logger.info(`${side === 'buy' ? "Asks outweighs bids, placing BUY  orders" : "Bids outweighs asks, placing SELL orders"}`)
-
-
+            logger.info(
+              `${
+                side === "buy"
+                  ? "Asks outweighs bids, placing BUY  orders"
+                  : "Bids outweighs asks, placing SELL orders"
+              }`
+            );
 
             const quantity =
               Number(market.makerOrderMinimum) *
@@ -180,14 +191,20 @@ async function execLoop(
                 break;
               } else {
                 totalOrdersCount++;
-                logger.debug(JSON.stringify(orderParam, null, 2))
-                const order = await retry(() => {
-                  return client.RestAuthenticatedClient.createOrder({
-                    ...orderParam,
-                    ...client.getWalletAndNonce,
-                  });
+                logger.debug(JSON.stringify(orderParam, null, 2));
+                // const order = await retry(() => {
+                //   return client.RestAuthenticatedClient.createOrder({
+                //     ...orderParam,
+                //     ...client.getWalletAndNonce,
+                //   });
+                // });
+
+                const order = client.RestAuthenticatedClient.createOrder({
+                  ...orderParam,
+                  ...client.getWalletAndNonce,
                 });
-                logger.debug(JSON.stringify(order, null, 2))
+
+                logger.debug(JSON.stringify(order, null, 2));
                 // const datetime = new Date(order.time)
                 //   .toISOString()
                 //   .slice(0, 19)
@@ -200,9 +217,10 @@ async function execLoop(
                 //     order.orderId
                 //     // order
                 //   ));
-                let sideIdentifier = side === idex.OrderSide.buy ? "BUY " : "SELL";
+                let sideIdentifier =
+                  side === idex.OrderSide.buy ? "BUY " : "SELL";
 
-                if (order.type.includes("market")) {
+                if (orderParam.type.includes("market")) {
                   sideIdentifier = sideIdentifier === "BUY " ? "SELL" : "BUY ";
                 }
 

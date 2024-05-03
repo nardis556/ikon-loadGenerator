@@ -1,10 +1,8 @@
 version: '3.8'
 services:
-  app:
-    image: nardis555/ikon-loadgen
-    env_file:
-      - .env.ORDERS
-      - .env.ACCOUNTS
-      - .env
+  loadgen:
+    image: nardis555/ikon-loadgen:latest
     volumes:
-      - .:/usr/src/app
+      - .env.ACCOUNTS:/usr/src/app/.env.ACCOUNTS
+      - .env.ORDERS:/usr/src/app/.env.ORDERS
+      - .env:/usr/src/app/.env
