@@ -52,13 +52,23 @@ create_docker_compose() {
 services:
   ${environment}:
     image: nardis555/ikon-loadgen:latest
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     volumes:
-      - .env:/usr/src/app/.env
       - .env.ACCOUNTS:/usr/src/app/.env.ACCOUNTS
       - .env.ORDERS:/usr/src/app/.env.ORDERS
+      - .env:/usr/src/app/.env
+  wt:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 60
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_LABEL_ENABLE=true
+
 EOF
 }
-
 # gist raw URLs for the environment files, sorted by sandbox_filenames
 sandbox_urls=(
     ""
