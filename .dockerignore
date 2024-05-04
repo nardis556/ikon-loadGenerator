@@ -2,3 +2,5 @@
 node_modules/
 logs/
 .git/
+.automate.sh
+.automate.sh.example

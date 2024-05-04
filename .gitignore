@@ -5,3 +5,4 @@ src/*.log
 src/tests/*
 logs/*.log
 node_modules
+automate.sh
