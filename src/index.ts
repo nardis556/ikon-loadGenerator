@@ -220,6 +220,8 @@ async function execLoop(
                 let sideIdentifier =
                   side === idex.OrderSide.buy ? "BUY " : "SELL";
 
+                console.log(`build is working`);
+
                 if (orderParam.type.includes("market")) {
                   sideIdentifier = sideIdentifier === "BUY " ? "SELL" : "BUY ";
                 }
