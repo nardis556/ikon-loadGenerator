@@ -16,7 +16,6 @@ dotenv.config({ path: path.resolve(__dirname, "../.env.ORDERS") });
 const main = async () => {
   logger.info("Starting main function");
   let initSide: idex.OrderSide = process.env.SIDE as idex.OrderSide;
-  let previousMarket: string;
   const accounts = fetchAccounts();
   const clients: { [key: string]: IClient } = {};
 
@@ -43,18 +42,8 @@ const main = async () => {
   if (process.env.INITIALIZE_CANCELS === "true") {
     await initializeCancels(accounts, clients);
   }
-  // const database = new db();
 
-  // if (process.env.WRITE_TO_DB === "true") {
-  //   await database.connect();
-  // }
-
-  await execLoop(
-    clients,
-    previousMarket,
-    initSide as idex.OrderSide
-    // database
-  );
+  await execLoop(clients, initSide as idex.OrderSide);
 };
 
 main().catch((error) => {
@@ -63,9 +52,7 @@ main().catch((error) => {
 
 async function execLoop(
   clients: { [key: string]: IClient },
-  previousMarket: string,
   initSide: idex.OrderSide
-  // database: db
 ) {
   let side: idex.OrderSide = initSide;
   while (true) {
@@ -120,6 +107,9 @@ async function execLoop(
                 0
               );
 
+            let obIndicator: boolean;
+            let posIndicator: boolean;
+
             const bidsWeight = calculateWeight(orderBook.bids);
             const asksWeight = calculateWeight(orderBook.asks);
 
@@ -133,14 +123,14 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) > 0 &&
               Math.abs(Number(openPositions[0].quantity)) >
-                Number(market.maximumPositionSize) / 1.5
+                Number(market.maximumPositionSize) / 2
             ) {
               side = idex.OrderSide.sell;
             } else if (
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) < 0 &&
               Math.abs(Number(openPositions[0].quantity)) <
-                Number(market.maximumPositionSize) / 1.5
+                Number(market.maximumPositionSize) / 2
             ) {
               side = idex.OrderSide.buy;
             }
@@ -148,8 +138,8 @@ async function execLoop(
             logger.info(
               `${
                 side === "buy"
-                  ? "Asks outweighs bids, placing BUY  orders"
-                  : "Bids outweighs asks, placing SELL orders"
+                  ? "placing BUY  orders"
+                  : "placing SELL orders"
               }`
             );
 
@@ -192,31 +182,12 @@ async function execLoop(
               } else {
                 totalOrdersCount++;
                 logger.debug(JSON.stringify(orderParam, null, 2));
-                // const order = await retry(() => {
-                //   return client.RestAuthenticatedClient.createOrder({
-                //     ...orderParam,
-                //     ...client.getWalletAndNonce,
-                //   });
-                // });
-
                 const order = client.RestAuthenticatedClient.createOrder({
                   ...orderParam,
                   ...client.getWalletAndNonce,
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
-                // const datetime = new Date(order.time)
-                //   .toISOString()
-                //   .slice(0, 19)
-                //   .replace("T", " ");
-
-                // process.env.WRITE_TO_DB === "true" &&
-                //   (await database.writeToCreateOrder(
-                //     datetime,
-                //     client.getWalletAndNonce.wallet,
-                //     order.orderId
-                //     // order
-                //   ));
                 let sideIdentifier =
                   side === idex.OrderSide.buy ? "BUY " : "SELL";
 
@@ -235,18 +206,12 @@ async function execLoop(
                   ));
               }
             }
-
-            previousMarket = marketID;
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
           }
 
-          const cooldownMessage =
-            process.env.COOLDOWN === "true"
-              ? `cooldown for ${process.env.COOLDOWN_PER_MARKET} seconds`
-              : "";
           process.env.COOLDOWN === "true" &&
             (await setTimeout(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
           side =
@@ -270,7 +235,7 @@ async function execLoop(
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
+      continue;
     }
   }
-  return { previousMarket, side };
 }
