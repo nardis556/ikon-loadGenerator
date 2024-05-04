@@ -143,8 +143,6 @@ async function execLoop(
               }`
             );
 
-            // test
-
             const quantity =
               Number(market.makerOrderMinimum) *
               Number(process.env.QUANTITY_ALPHA_FACTOR) *
