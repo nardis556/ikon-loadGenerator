@@ -2,16 +2,16 @@ services:
   SB:
     image: nardis555/ikon-loadgen:latest
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      watchtower.scope: "SB"
     volumes:
       - .env.ACCOUNTS:/usr/src/app/.env.ACCOUNTS
       - .env.ORDERS:/usr/src/app/.env.ORDERS
       - .env:/usr/src/app/.env
+
   wt:
     image: containrrr/watchtower
+    command: --label-enable --scope SB # scope must match the label above
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 60
     environment:
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_LABEL_ENABLE=true
