@@ -125,6 +125,7 @@ async function pollData(
           2
         )}`
       );
+      await setTimeout(100);
       initializeMarketData(marketID, accountKey);
     }
     await setTimeout(5000);
@@ -144,34 +145,37 @@ async function startPolling(
           return client.RestAuthenticatedClient.getPositions({
             market: marketID,
             ...client.getWalletAndNonce,
-          }).catch((error) => {
+          }).catch(async (error) => {
             logger.error(
               `Error fetching open positions: ${
                 (error.response ? error.response?.data : error, null, 2)
               }`
             );
+            await setTimeout(100);
           });
         case "openOrders":
           return client.RestAuthenticatedClient.getOrders({
             ...client.getWalletAndNonce,
             limit: Number(process.env.OPEN_ORDERS),
-          }).catch((error) => {
+          }).catch(async (error) => {
             logger.error(
               `Error fetching open orders: ${
                 (error.response ? error.response?.data : error, null, 2)
               }`
             );
+            await setTimeout(100);
           });
         case "orderBook":
           return client.RestPublicClient.getOrderBookLevel2({
             market: marketID,
             limit: 200,
-          }).catch((error) => {
+          }).catch(async (error) => {
             logger.error(
               `Error fetching orderbook: ${
                 (error.response ? error.response?.data : error, null, 2)
               }`
             );
+            await setTimeout(100);
           });
       }
     });
@@ -236,7 +240,7 @@ async function execLoop(
                     );
                     alreadyCancelled = true;
                   })
-                  .catch((e) => {
+                  .catch(async (e) => {
                     logger.error(
                       `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
                         e.response ? e.response?.data : e,
@@ -244,6 +248,7 @@ async function execLoop(
                         2
                       )}`
                     );
+                    await setTimeout(100);
                   });
               }
             }
@@ -335,7 +340,7 @@ async function execLoop(
                       );
                       alreadyCancelled = true;
                     })
-                    .catch((e) => {
+                    .catch(async (e) => {
                       logger.error(
                         `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
                           e.response ? e.response?.data : e,
@@ -343,6 +348,7 @@ async function execLoop(
                           2
                         )}`
                       );
+                      await setTimeout(100);
                     });
                 }
                 break;
@@ -352,7 +358,7 @@ async function execLoop(
                 const order = client.RestAuthenticatedClient.createOrder({
                   ...orderParam,
                   ...client.getWalletAndNonce,
-                }).catch((e) => {
+                }).catch(async (e) => {
                   logger.error(
                     `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
                       e.response ? e.response?.data : e,
@@ -360,6 +366,7 @@ async function execLoop(
                       2
                     )}`
                   );
+                  await setTimeout(100);
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
@@ -389,6 +396,7 @@ async function execLoop(
                 2
               )}`
             );
+            await setTimeout(100);
           }
 
           process.env.COOLDOWN === "true" &&
@@ -420,6 +428,7 @@ async function execLoop(
           2
         )}`
       );
+      await setTimeout(100);
       continue;
     }
   }
