@@ -166,7 +166,7 @@ export async function initializeCancels(
   }
 }
 
-export const testClient = async (): Promise<IClient> => {
+export const initClient = async (): Promise<IClient> => {
   try {
     const client = await clientBuilder(
       initAuth.apiKey,

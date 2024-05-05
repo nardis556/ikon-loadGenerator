@@ -3,6 +3,7 @@ import { fetchMarkets, initializeAccounts, initializeCancels } from "./init";
 import { clientBuilder } from "./utils/clientBuilder";
 import * as idex from "@idexio/idex-sdk";
 import EventEmitter from "events";
+import { initClient } from "./init";
 import { IClient } from "./utils/IAaccounts";
 import logger from "./utils/logger";
 import { retry } from "./utils/retry";
@@ -21,6 +22,7 @@ const main = async () => {
   let initSide: idex.OrderSide = process.env.SIDE as idex.OrderSide;
   const accounts = fetchAccounts();
   const clients: { [key: string]: IClient } = {};
+  const clientInit = await initClient();
 
   for (const [accountKey, accountInfo] of Object.entries(accounts)) {
     try {
@@ -89,61 +91,129 @@ async function wsHandler(
   });
 }
 
+const marketData = {};
+
+function initializeMarketData(marketID: string, accountKey: string) {
+  if (!marketData[marketID]) {
+    marketData[marketID] = {};
+  }
+  if (!marketData[marketID][accountKey]) {
+    marketData[marketID][accountKey] = {
+      openPositions: [],
+      openOrders: [],
+      orderBook: { bids: [], asks: [] },
+    };
+  }
+}
+
+async function pollData(
+  client: IClient,
+  marketID: string,
+  accountKey: string,
+  key: string,
+  fetchFunction: () => Promise<any>
+) {
+  while (true) {
+    try {
+      const data = await fetchFunction();
+      marketData[marketID][accountKey][key] = data;
+    } catch (error) {
+      logger.error(
+        `Error polling ${key} for market ${marketID}: ${error.message}`
+      );
+      initializeMarketData(marketID, accountKey);
+    }
+    await setTimeout(5000);
+  }
+}
+
+async function startPolling(
+  client: IClient,
+  marketID: string,
+  accountKey: string
+) {
+  initializeMarketData(marketID, accountKey);
+  ["openPositions", "openOrders", "orderBook"].forEach((key) => {
+    pollData(client, marketID, accountKey, key, () => {
+      switch (key) {
+        case "openPositions":
+          return client.RestAuthenticatedClient.getPositions({
+            market: marketID,
+            ...client.getWalletAndNonce,
+          });
+        case "openOrders":
+          return client.RestAuthenticatedClient.getOrders({
+            ...client.getWalletAndNonce,
+            limit: Number(process.env.OPEN_ORDERS),
+          });
+        case "orderBook":
+          return client.RestPublicClient.getOrderBookLevel2({
+            market: marketID,
+            limit: 200,
+          });
+      }
+    });
+  });
+}
+
 async function execLoop(
   clients: { [key: string]: IClient },
   initSide: idex.OrderSide
 ) {
-  let markets: ExtendedIDEXMarket[] = [];
-  let side: idex.OrderSide = initSide;
-  markets = await fetchMarkets();
+  let markets = await fetchMarkets();
   const marketsSubscription = markets.map(
     (m) => `${m.baseAsset}-${m.quoteAsset}`
   );
-
   await wsHandler(marketsSubscription, markets);
+
+  for (const market of markets) {
+    const marketID = `${market.baseAsset}-${market.quoteAsset}`;
+    for (const [accountKey, client] of Object.entries(clients)) {
+      logger.info(`Starting polling for ${accountKey} on market ${marketID}`);
+      startPolling(client, marketID, accountKey);
+      await setTimeout(100);
+    }
+  }
+
+  logger.info(`Finished polling for all markets.`);
+  await setTimeout(1000);
 
   while (true) {
     try {
+      let side = initSide;
       for (const [accountKey, client] of Object.entries(clients)) {
         let updatedMarkets = markets;
         for (const market of updatedMarkets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
-          let totalOrdersCount: number;
+
           try {
-            const [openPositions, openOrders, orderBook] = await Promise.all([
-              retry(() =>
-                client.RestAuthenticatedClient.getPositions({
-                  market: marketID,
-                  ...client.getWalletAndNonce,
-                })
-              ),
-              retry(() =>
-                client.RestAuthenticatedClient.getOrders({
-                  ...client.getWalletAndNonce,
-                  limit: 1000,
-                })
-              ),
-              retry(() =>
-                client.RestPublicClient.getOrderBookLevel2({
-                  market: marketID,
-                  limit: 1000,
-                })
-              ),
-            ]);
+            const { openPositions, openOrders, orderBook } =
+              marketData[marketID] && marketData[marketID][accountKey]
+                ? marketData[marketID][accountKey]
+                : {
+                    openPositions: [],
+                    openOrders: [],
+                    orderBook: { bids: [], asks: [] },
+                  };
+
+            let totalOrdersCount: number;
 
             totalOrdersCount = +openOrders.length;
+            let alreadyCancelled = false;
 
             if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-              const cancelledOrders = await retry(() =>
+              if (!alreadyCancelled) {
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                   market: marketID,
-                })
-              );
-              totalOrdersCount -= cancelledOrders.length;
-              logger.info(
-                `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-              );
+                }).then((cancelledOrders) => {
+                  totalOrdersCount -= cancelledOrders.length;
+                  logger.info(
+                    `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+                  );
+                  alreadyCancelled = true;
+                });
+              }
             }
 
             const calculateWeight = (orders: any) =>
@@ -193,8 +263,6 @@ async function execLoop(
               }`
             );
 
-            // "test"
-
             const quantity =
               Number(market.makerOrderMinimum) *
               Number(process.env.QUANTITY_ALPHA_FACTOR) *
@@ -223,16 +291,25 @@ async function execLoop(
                 orderParam.quantity = market.makerOrderMinimum;
               }
               if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-                const cancelledOrders = await retry(() =>
+                if (!alreadyCancelled) {
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
-                    // market: previousMarket,
+                    market: marketID,
                   })
-                );
-                totalOrdersCount -= cancelledOrders.length;
-                logger.info(
-                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                );
+                    .then((cancelledOrders) => {
+                      totalOrdersCount -= cancelledOrders.length;
+                      logger.info(
+                        `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+                      );
+                      alreadyCancelled = true;
+                    })
+                    .catch((e) => {
+                      logger.error(
+                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                      );
+                    });
+                }
+
                 break;
               } else {
                 totalOrdersCount++;
@@ -493,6 +570,218 @@ async function execLoop(
                 const order = client.RestAuthenticatedClient.createOrder({
                   ...orderParam,
                   ...client.getWalletAndNonce,
+                });
+
+                logger.debug(JSON.stringify(order, null, 2));
+                let sideIdentifier =
+                  side === idex.OrderSide.buy ? "BUY " : "SELL";
+
+                if (orderParam.type.includes("market")) {
+                  sideIdentifier = sideIdentifier === "BUY " ? "SELL" : "BUY ";
+                }
+
+                let price = orderParam.price || "market";
+                logger.info(
+                  `${accountKey} ${marketID} ${sideIdentifier} order for at ${price}. ${totalOrdersCount}`
+                );
+
+                process.env.COOLDOWN === "true" &&
+                  (await setTimeout(
+                    Number(process.env.COOLDOWN_PER_ORDER) * 1000
+                  ));
+              }
+            }
+          } catch (e) {
+            logger.error(
+              `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
+            );
+          }
+
+          process.env.COOLDOWN === "true" &&
+            (await setTimeout(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
+          side =
+            side === idex.OrderSide.buy
+              ? idex.OrderSide.sell
+              : idex.OrderSide.buy;
+        }
+        const cooldownMessage =
+          process.env.COOLDOWN === "true"
+            ? `cooldown for ${process.env.COOLDOWN_PER_ACCOUNT} seconds`
+            : "";
+        logger.info(
+          `Finished processing markets for ${accountKey}. ${cooldownMessage}`
+        );
+        side =
+          side === idex.OrderSide.buy
+            ? idex.OrderSide.sell
+            : idex.OrderSide.buy;
+        process.env.COOLDOWN === "true" &&
+          (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
+      }
+    } catch (e) {
+      logger.error(`Error fetching markets: ${e.message}`);
+      continue;
+    }
+  }
+}
+ */
+
+/**
+async function execLoop(
+  clients: { [key: string]: IClient },
+  initSide: idex.OrderSide
+) {
+  let markets: ExtendedIDEXMarket[] = [];
+  let side: idex.OrderSide = initSide;
+  markets = await fetchMarkets();
+  const marketsSubscription = markets.map(
+    (m) => `${m.baseAsset}-${m.quoteAsset}`
+  );
+
+  await wsHandler(marketsSubscription, markets);
+
+  while (true) {
+    try {
+      for (const [accountKey, client] of Object.entries(clients)) {
+        let updatedMarkets = markets;
+        for (const market of updatedMarkets) {
+          const marketID = `${market.baseAsset}-${market.quoteAsset}`;
+          let totalOrdersCount: number;
+          try {
+            const [openPositions, openOrders, orderBook] = await Promise.all([
+              retry(() =>
+                client.RestAuthenticatedClient.getPositions({
+                  market: marketID,
+                  ...client.getWalletAndNonce,
+                })
+              ),
+              retry(() =>
+                client.RestAuthenticatedClient.getOrders({
+                  ...client.getWalletAndNonce,
+                  limit: Number(process.env.OPEN_ORDERS),
+                })
+              ),
+              retry(() =>
+                client.RestPublicClient.getOrderBookLevel2({
+                  market: marketID,
+                  limit: 1000,
+                })
+              ),
+            ]);
+
+            totalOrdersCount = +openOrders.length;
+
+            if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
+              const cancelledOrders = await retry(() =>
+                client.RestAuthenticatedClient.cancelOrders({
+                  ...client.getWalletAndNonce,
+                  market: marketID,
+                })
+              );
+              totalOrdersCount -= cancelledOrders.length;
+              logger.info(
+                `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+              );
+            }
+
+            const calculateWeight = (orders: any) =>
+              orders.reduce(
+                (acc: any, [price, quantity]) =>
+                  acc + Number(price) * Number(quantity),
+                0
+              );
+
+            let obIndicator: boolean;
+            let posIndicator: boolean;
+
+            const bidsWeight = calculateWeight(orderBook.bids);
+            const asksWeight = calculateWeight(orderBook.asks);
+
+            if (bidsWeight > (bidsWeight + asksWeight) / 2) {
+              side = idex.OrderSide.sell;
+            } else {
+              side = idex.OrderSide.buy;
+            }
+
+            let runMarket = true;
+
+            if (
+              openPositions.length !== 0 &&
+              Number(openPositions[0].quantity) > 0 &&
+              Math.abs(Number(openPositions[0].quantity)) >
+                Number(market.maximumPositionSize) / 2
+            ) {
+              side = idex.OrderSide.sell;
+              runMarket = false;
+            } else if (
+              openPositions.length !== 0 &&
+              Number(openPositions[0].quantity) < 0 &&
+              Math.abs(Number(openPositions[0].quantity)) <
+                Number(market.maximumPositionSize) / 2
+            ) {
+              side = idex.OrderSide.buy;
+              runMarket = false;
+            }
+
+            logger.info(
+              `${
+                side === "buy"
+                  ? `placing BUY  orders at ${market.wsIndexPrice}`
+                  : `placing SELL orders ${market.wsIndexPrice}`
+              }`
+            );
+
+            // "test"
+
+            const quantity =
+              Number(market.makerOrderMinimum) *
+              Number(process.env.QUANTITY_ALPHA_FACTOR) *
+              (1 +
+                Math.floor(
+                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                ));
+
+            const orderParams = generateOrderTemplate(
+              Number(market.wsIndexPrice),
+              quantity,
+              Number(market.takerOrderMinimum),
+              market.quantityRes,
+              market.priceRes,
+              market.iterations,
+              market.priceIncrement,
+              marketID,
+              side
+            );
+
+            for (const orderParam of orderParams) {
+              if (!runMarket && orderParam.type.includes("market")) {
+                continue;
+              }
+              if (orderParam.quantity < Number(market.makerOrderMinimum)) {
+                orderParam.quantity = market.makerOrderMinimum;
+              }
+              if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
+                const cancelledOrders = await retry(() =>
+                  client.RestAuthenticatedClient.cancelOrders({
+                    ...client.getWalletAndNonce,
+                    // market: previousMarket,
+                  })
+                );
+                totalOrdersCount -= cancelledOrders.length;
+                logger.info(
+                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+                );
+                break;
+              } else {
+                totalOrdersCount++;
+                logger.debug(JSON.stringify(orderParam, null, 2));
+                const order = client.RestAuthenticatedClient.createOrder({
+                  ...orderParam,
+                  ...client.getWalletAndNonce,
+                }).catch((e) => {
+                  logger.error(
+                    `Error creating order for ${accountKey} on market ${marketID}: ${e.message}`
+                  );
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
