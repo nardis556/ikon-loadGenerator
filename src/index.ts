@@ -120,7 +120,7 @@ async function pollData(
     } catch (error) {
       logger.error(
         `Error polling ${key} for market ${marketID}: ${JSON.stringify(
-          error,
+          error.response ? error.response.data : error,
           null,
           2
         )}`
@@ -144,22 +144,34 @@ async function startPolling(
           return client.RestAuthenticatedClient.getPositions({
             market: marketID,
             ...client.getWalletAndNonce,
-          }).catch((e) => {
-            logger.error(`Error fetching open positions: ${e}`);
+          }).catch((error) => {
+            logger.error(
+              `Error fetching open positions: ${
+                (error.response ? error.response?.data : error, null, 2)
+              }`
+            );
           });
         case "openOrders":
           return client.RestAuthenticatedClient.getOrders({
             ...client.getWalletAndNonce,
             limit: Number(process.env.OPEN_ORDERS),
-          }).catch((e) => {
-            logger.error(`Error fetching open orders: ${e}`);
+          }).catch((error) => {
+            logger.error(
+              `Error fetching open orders: ${
+                (error.response ? error.response?.data : error, null, 2)
+              }`
+            );
           });
         case "orderBook":
           return client.RestPublicClient.getOrderBookLevel2({
             market: marketID,
             limit: 200,
-          }).catch((e) => {
-            logger.error(`Error fetching order book: ${e}`);
+          }).catch((error) => {
+            logger.error(
+              `Error fetching orderbook: ${
+                (error.response ? error.response?.data : error, null, 2)
+              }`
+            );
           });
       }
     });
@@ -227,7 +239,7 @@ async function execLoop(
                   .catch((e) => {
                     logger.error(
                       `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                        e,
+                        e.response ? e.response?.data : e,
                         null,
                         2
                       )}`
@@ -326,7 +338,7 @@ async function execLoop(
                     .catch((e) => {
                       logger.error(
                         `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                          e,
+                          e.response ? e.response?.data : e,
                           null,
                           2
                         )}`
@@ -343,7 +355,7 @@ async function execLoop(
                 }).catch((e) => {
                   logger.error(
                     `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                      e,
+                      e.response ? e.response?.data : e,
                       null,
                       2
                     )}`
@@ -371,7 +383,11 @@ async function execLoop(
             }
           } catch (e) {
             logger.error(
-              `Error handling market operations for ${accountKey} on market ${marketID}: ${e}`
+              `Error handling market operations for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                e.response ? e.response?.data : e,
+                null,
+                2
+              )}`
             );
           }
 
@@ -397,7 +413,13 @@ async function execLoop(
           (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
       }
     } catch (e) {
-      logger.error(`Error fetching markets: ${e}`);
+      logger.error(
+        `Error fetching markets: ${JSON.stringify(
+          e.response ? e.response?.data : e,
+          null,
+          2
+        )}`
+      );
       continue;
     }
   }
