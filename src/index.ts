@@ -238,8 +238,8 @@ async function execLoop(
             let obIndicator: boolean;
             let posIndicator: boolean;
 
-            const bidsWeight = calculateWeight(orderBook.bids);
-            const asksWeight = calculateWeight(orderBook.asks);
+            const bidsWeight = calculateWeight(orderBook.bids) * 0.9;
+            const asksWeight = calculateWeight(orderBook.asks) * 1.1;
 
             if (bidsWeight > (bidsWeight + asksWeight) / 2) {
               side = idex.OrderSide.sell;
@@ -253,7 +253,7 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) > 0 &&
               Math.abs(Number(openPositions[0].quantity)) >
-                Number(market.maximumPositionSize) / 2
+                Number(market.maximumPositionSize) / 1.5
             ) {
               side = idex.OrderSide.sell;
               runMarket = false;
@@ -261,7 +261,7 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) < 0 &&
               Math.abs(Number(openPositions[0].quantity)) <
-                Number(market.maximumPositionSize) / 2
+                Number(market.maximumPositionSize) / 1.5
             ) {
               side = idex.OrderSide.buy;
               runMarket = false;
