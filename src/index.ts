@@ -240,6 +240,10 @@ async function execLoop(
                 const order = client.RestAuthenticatedClient.createOrder({
                   ...orderParam,
                   ...client.getWalletAndNonce,
+                }).catch((e) => {
+                  logger.error(
+                    `Error creating order for ${accountKey} on market ${marketID}: ${e.message}`
+                  );
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
