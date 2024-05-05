@@ -119,10 +119,11 @@ async function pollData(
       marketData[marketID][accountKey][key] = data;
     } catch (error) {
       logger.error(
-        `Error polling ${key} for market ${marketID}: ${
-          JSON.stringify(error.response?.data, null, 2) ||
-          JSON.stringify(error, null, 2)
-        }`
+        `Error polling ${key} for market ${marketID}: ${JSON.stringify(
+          error,
+          null,
+          2
+        )}`
       );
       initializeMarketData(marketID, accountKey);
     }
@@ -143,16 +144,22 @@ async function startPolling(
           return client.RestAuthenticatedClient.getPositions({
             market: marketID,
             ...client.getWalletAndNonce,
+          }).catch((e) => {
+            logger.error(`Error fetching open positions: ${e}`);
           });
         case "openOrders":
           return client.RestAuthenticatedClient.getOrders({
             ...client.getWalletAndNonce,
             limit: Number(process.env.OPEN_ORDERS),
+          }).catch((e) => {
+            logger.error(`Error fetching open orders: ${e}`);
           });
         case "orderBook":
           return client.RestPublicClient.getOrderBookLevel2({
             market: marketID,
             limit: 200,
+          }).catch((e) => {
+            logger.error(`Error fetching order book: ${e}`);
           });
       }
     });
@@ -364,7 +371,7 @@ async function execLoop(
             }
           } catch (e) {
             logger.error(
-              `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
+              `Error handling market operations for ${accountKey} on market ${marketID}: ${e}`
             );
           }
 
@@ -390,7 +397,7 @@ async function execLoop(
           (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
       }
     } catch (e) {
-      logger.error(`Error fetching markets: ${e.message}`);
+      logger.error(`Error fetching markets: ${e}`);
       continue;
     }
   }
