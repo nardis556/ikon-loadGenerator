@@ -119,7 +119,10 @@ async function pollData(
       marketData[marketID][accountKey][key] = data;
     } catch (error) {
       logger.error(
-        `Error polling ${key} for market ${marketID}: ${error.message}`
+        `Error polling ${key} for market ${marketID}: ${
+          JSON.stringify(error.response?.data, null, 2) ||
+          JSON.stringify(error, null, 2)
+        }`
       );
       initializeMarketData(marketID, accountKey);
     }
@@ -206,13 +209,22 @@ async function execLoop(
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                   market: marketID,
-                }).then((cancelledOrders) => {
-                  totalOrdersCount -= cancelledOrders.length;
-                  logger.info(
-                    `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                  );
-                  alreadyCancelled = true;
-                });
+                })
+                  .then((cancelledOrders) => {
+                    totalOrdersCount -= cancelledOrders.length;
+                    logger.info(
+                      `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+                    );
+                    alreadyCancelled = true;
+                  })
+                  .catch((e) => {
+                    logger.error(
+                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${
+                        JSON.stringify(e.response?.data, null, 2) ||
+                        JSON.stringify(e, null, 2)
+                      }`
+                    );
+                  });
               }
             }
 
@@ -305,7 +317,10 @@ async function execLoop(
                     })
                     .catch((e) => {
                       logger.error(
-                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${
+                          JSON.stringify(e.response?.data, null, 2) ||
+                          JSON.stringify(e, null, 2)
+                        }`
                       );
                     });
                 }
@@ -319,7 +334,11 @@ async function execLoop(
                   ...client.getWalletAndNonce,
                 }).catch((e) => {
                   logger.error(
-                    `Error creating order for ${accountKey} on market ${marketID}: ${e.message}`
+                    `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                      e.response.data,
+                      null,
+                      2
+                    )}`
                   );
                 });
 
