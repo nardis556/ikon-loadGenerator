@@ -128,7 +128,7 @@ async function pollData(
       await setTimeout(100);
       initializeMarketData(marketID, accountKey);
     }
-    await setTimeout(5000);
+    await setTimeout(10000);
   }
 }
 
