@@ -219,10 +219,11 @@ async function execLoop(
                   })
                   .catch((e) => {
                     logger.error(
-                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${
-                        JSON.stringify(e.response?.data, null, 2) ||
-                        JSON.stringify(e, null, 2)
-                      }`
+                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                        e,
+                        null,
+                        2
+                      )}`
                     );
                   });
               }
@@ -317,14 +318,14 @@ async function execLoop(
                     })
                     .catch((e) => {
                       logger.error(
-                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${
-                          JSON.stringify(e.response?.data, null, 2) ||
-                          JSON.stringify(e, null, 2)
-                        }`
+                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                          e,
+                          null,
+                          2
+                        )}`
                       );
                     });
                 }
-
                 break;
               } else {
                 totalOrdersCount++;
@@ -335,7 +336,7 @@ async function execLoop(
                 }).catch((e) => {
                   logger.error(
                     `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                      e.response.data,
+                      e,
                       null,
                       2
                     )}`
