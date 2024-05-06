@@ -156,7 +156,7 @@ async function startPolling(
         case "openOrders":
           return client.RestAuthenticatedClient.getOrders({
             ...client.getWalletAndNonce,
-            limit: Number(process.env.OPEN_ORDERS),
+            limit: 1000,
           }).catch(async (error) => {
             logger.error(
               `Error fetching open orders: ${
