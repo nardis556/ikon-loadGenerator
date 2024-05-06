@@ -51,12 +51,10 @@ const main = async () => {
   await execLoop(clients, initSide as idex.OrderSide);
 };
 
-async function wsHandler(
-  marketsSubscription: string[],
-  markets: ExtendedIDEXMarket[]
-) {
+async function wsHandler(marketsSubscription, markets) {
   const ws = await wsClient();
-  ws.connect(true);
+  ws.connect();
+
   function subscribe() {
     ws.subscribePublic(
       // @ts-ignore
@@ -64,15 +62,17 @@ async function wsHandler(
       marketsSubscription
     );
   }
+
   ws.onConnect(() => {
+    console.log("WebSocket connected, subscribing to markets.");
     subscribe();
   });
+
   ws.onMessage((message) => {
     if (message.type === idex.SubscriptionName.l1orderbook) {
       markets.forEach((market) => {
-        if (
-          `${market.baseAsset}-${market.quoteAsset}` === message.data.market
-        ) {
+        const marketId = `${market.baseAsset}-${market.quoteAsset}`;
+        if (marketId === message.data.market) {
           market.wsIndexPrice = message.data.indexPrice;
         }
       });
@@ -80,12 +80,23 @@ async function wsHandler(
   });
 
   ws.onError((error) => {
-    logger.error(`onError in wsOb function: ${JSON.stringify(error, null, 2)}`);
+    logger.error(
+      `WebSocket onError in wsHandler function: ${JSON.stringify(
+        error,
+        null,
+        2
+      )}`
+    );
     subscribe();
   });
+
   ws.onDisconnect((e) => {
     logger.debug(
-      `onDisconnect in wsOb function: ${JSON.stringify(e, null, 2)}`
+      `WebSocket onDisconnect in wsHandler function: ${JSON.stringify(
+        e,
+        null,
+        2
+      )}`
     );
     subscribe();
   });
