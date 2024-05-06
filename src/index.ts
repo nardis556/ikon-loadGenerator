@@ -91,166 +91,61 @@ async function wsHandler(
   });
 }
 
-const marketData = {};
-
-function initializeMarketData(marketID: string, accountKey: string) {
-  if (!marketData[marketID]) {
-    marketData[marketID] = {};
-  }
-  if (!marketData[marketID][accountKey]) {
-    marketData[marketID][accountKey] = {
-      openPositions: [],
-      openOrders: [],
-      orderBook: { bids: [], asks: [] },
-    };
-  }
-}
-
-async function pollData(
-  client: IClient,
-  marketID: string,
-  accountKey: string,
-  key: string,
-  fetchFunction: () => Promise<any>
-) {
-  while (true) {
-    try {
-      const data = await fetchFunction();
-      marketData[marketID][accountKey][key] = data;
-    } catch (error) {
-      logger.error(
-        `Error polling ${key} for market ${marketID}: ${JSON.stringify(
-          error.response ? error.response.data : error,
-          null,
-          2
-        )}`
-      );
-      await setTimeout(100);
-      initializeMarketData(marketID, accountKey);
-    }
-    await setTimeout(10000);
-  }
-}
-
-async function startPolling(
-  client: IClient,
-  marketID: string,
-  accountKey: string
-) {
-  initializeMarketData(marketID, accountKey);
-  ["openPositions", "openOrders", "orderBook"].forEach((key) => {
-    pollData(client, marketID, accountKey, key, () => {
-      switch (key) {
-        case "openPositions":
-          return client.RestAuthenticatedClient.getPositions({
-            market: marketID,
-            ...client.getWalletAndNonce,
-          }).catch(async (error) => {
-            logger.error(
-              `Error fetching open positions: ${
-                (error.response ? error.response?.data : error, null, 2)
-              }`
-            );
-            await setTimeout(100);
-          });
-        case "openOrders":
-          return client.RestAuthenticatedClient.getOrders({
-            ...client.getWalletAndNonce,
-            limit: 1000,
-          }).catch(async (error) => {
-            logger.error(
-              `Error fetching open orders: ${
-                (error.response ? error.response?.data : error, null, 2)
-              }`
-            );
-            await setTimeout(100);
-          });
-        case "orderBook":
-          return client.RestPublicClient.getOrderBookLevel2({
-            market: marketID,
-            limit: 200,
-          }).catch(async (error) => {
-            logger.error(
-              `Error fetching orderbook: ${
-                (error.response ? error.response?.data : error, null, 2)
-              }`
-            );
-            await setTimeout(100);
-          });
-      }
-    });
-  });
-}
-
 async function execLoop(
   clients: { [key: string]: IClient },
   initSide: idex.OrderSide
 ) {
-  let markets = await fetchMarkets();
+  let markets: ExtendedIDEXMarket[] = [];
+  let side: idex.OrderSide = initSide;
+  markets = await fetchMarkets();
   const marketsSubscription = markets.map(
     (m) => `${m.baseAsset}-${m.quoteAsset}`
   );
+
   await wsHandler(marketsSubscription, markets);
-
-  for (const market of markets) {
-    const marketID = `${market.baseAsset}-${market.quoteAsset}`;
-    for (const [accountKey, client] of Object.entries(clients)) {
-      logger.info(`Starting polling for ${accountKey} on market ${marketID}`);
-      startPolling(client, marketID, accountKey);
-      await setTimeout(100);
-    }
-  }
-
-  logger.info(`Finished polling for all markets.`);
-  await setTimeout(1000);
 
   while (true) {
     try {
-      let side = initSide;
       for (const [accountKey, client] of Object.entries(clients)) {
         let updatedMarkets = markets;
         for (const market of updatedMarkets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
-
+          let totalOrdersCount: number;
           try {
-            const { openPositions, openOrders, orderBook } =
-              marketData[marketID] && marketData[marketID][accountKey]
-                ? marketData[marketID][accountKey]
-                : {
-                    openPositions: [],
-                    openOrders: [],
-                    orderBook: { bids: [], asks: [] },
-                  };
-
-            let totalOrdersCount: number;
+            const [openPositions, openOrders, orderBook] = await Promise.all([
+              retry(() =>
+                client.RestAuthenticatedClient.getPositions({
+                  market: marketID,
+                  ...client.getWalletAndNonce,
+                })
+              ),
+              retry(() =>
+                client.RestAuthenticatedClient.getOrders({
+                  ...client.getWalletAndNonce,
+                  limit: Number(process.env.OPEN_ORDERS),
+                })
+              ),
+              retry(() =>
+                client.RestPublicClient.getOrderBookLevel2({
+                  market: marketID,
+                  limit: 1000,
+                })
+              ),
+            ]);
 
             totalOrdersCount = +openOrders.length;
-            let alreadyCancelled = false;
 
             if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-              if (!alreadyCancelled) {
+              const cancelledOrders = await retry(() =>
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                   market: marketID,
                 })
-                  .then((cancelledOrders) => {
-                    totalOrdersCount -= cancelledOrders.length;
-                    logger.info(
-                      `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                    );
-                    alreadyCancelled = true;
-                  })
-                  .catch(async (e) => {
-                    logger.error(
-                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                        e.response ? e.response?.data : e,
-                        null,
-                        2
-                      )}`
-                    );
-                    await setTimeout(100);
-                  });
-              }
+              );
+              totalOrdersCount -= cancelledOrders.length;
+              logger.info(
+                `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+              );
             }
 
             const calculateWeight = (orders: any) =>
@@ -263,8 +158,8 @@ async function execLoop(
             let obIndicator: boolean;
             let posIndicator: boolean;
 
-            const bidsWeight = calculateWeight(orderBook.bids) * 0.9;
-            const asksWeight = calculateWeight(orderBook.asks) * 1.1;
+            const bidsWeight = calculateWeight(orderBook.bids);
+            const asksWeight = calculateWeight(orderBook.asks);
 
             if (bidsWeight > (bidsWeight + asksWeight) / 2) {
               side = idex.OrderSide.sell;
@@ -278,7 +173,7 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) > 0 &&
               Math.abs(Number(openPositions[0].quantity)) >
-                Number(market.maximumPositionSize) / 1.5
+                Number(market.maximumPositionSize) / 2
             ) {
               side = idex.OrderSide.sell;
               runMarket = false;
@@ -286,7 +181,7 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) < 0 &&
               Math.abs(Number(openPositions[0].quantity)) <
-                Number(market.maximumPositionSize) / 1.5
+                Number(market.maximumPositionSize) / 2
             ) {
               side = idex.OrderSide.buy;
               runMarket = false;
@@ -299,6 +194,8 @@ async function execLoop(
                   : `placing SELL orders ${market.wsIndexPrice}`
               }`
             );
+
+            // "test"
 
             const quantity =
               Number(market.makerOrderMinimum) *
@@ -328,29 +225,16 @@ async function execLoop(
                 orderParam.quantity = market.makerOrderMinimum;
               }
               if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-                if (!alreadyCancelled) {
+                const cancelledOrders = await retry(() =>
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
-                    market: marketID,
+                    // market: previousMarket,
                   })
-                    .then((cancelledOrders) => {
-                      totalOrdersCount -= cancelledOrders.length;
-                      logger.info(
-                        `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                      );
-                      alreadyCancelled = true;
-                    })
-                    .catch(async (e) => {
-                      logger.error(
-                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                          e.response ? e.response?.data : e,
-                          null,
-                          2
-                        )}`
-                      );
-                      await setTimeout(100);
-                    });
-                }
+                );
+                totalOrdersCount -= cancelledOrders.length;
+                logger.info(
+                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
+                );
                 break;
               } else {
                 totalOrdersCount++;
@@ -358,15 +242,10 @@ async function execLoop(
                 const order = client.RestAuthenticatedClient.createOrder({
                   ...orderParam,
                   ...client.getWalletAndNonce,
-                }).catch(async (e) => {
+                }).catch((e) => {
                   logger.error(
-                    `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                      e.response ? e.response?.data : e,
-                      null,
-                      2
-                    )}`
+                    `Error creating order for ${accountKey} on market ${marketID}: ${e.message}`
                   );
-                  await setTimeout(100);
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
@@ -390,13 +269,8 @@ async function execLoop(
             }
           } catch (e) {
             logger.error(
-              `Error handling market operations for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                e.response ? e.response?.data : e,
-                null,
-                2
-              )}`
+              `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
-            await setTimeout(100);
           }
 
           process.env.COOLDOWN === "true" &&
@@ -421,14 +295,7 @@ async function execLoop(
           (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
       }
     } catch (e) {
-      logger.error(
-        `Error fetching markets: ${JSON.stringify(
-          e.response ? e.response?.data : e,
-          null,
-          2
-        )}`
-      );
-      await setTimeout(100);
+      logger.error(`Error fetching markets: ${e.message}`);
       continue;
     }
   }
