@@ -28,5 +28,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ikon-loadgen:slow
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ikon-loadgen:fast
           platforms: linux/amd64,linux/arm64/v8
