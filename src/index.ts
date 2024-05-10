@@ -55,6 +55,7 @@ async function wsHandler(
   marketsSubscription: string[],
   markets: ExtendedIDEXMarket[]
 ) {
+  let disconnect = false;
   const ws = await wsClient();
   ws.connect(true);
   function subscribe() {
@@ -63,6 +64,7 @@ async function wsHandler(
       [idex.SubscriptionName.l1orderbook],
       marketsSubscription
     );
+    disconnect = false;
   }
   ws.onConnect(() => {
     subscribe();
@@ -79,15 +81,23 @@ async function wsHandler(
     }
   });
 
-  ws.onError((error) => {
+  ws.onError(async (error) => {
     logger.error(`onError in wsOb function: ${JSON.stringify(error, null, 2)}`);
-    subscribe();
+    disconnect = true;
+    while (disconnect) {
+      subscribe();
+      await setTimeout(1000);
+    }
   });
-  ws.onDisconnect((e) => {
+  ws.onDisconnect(async (e) => {
     logger.debug(
       `onDisconnect in wsOb function: ${JSON.stringify(e, null, 2)}`
     );
-    subscribe();
+    disconnect = true;
+    while (disconnect) {
+      subscribe();
+      await setTimeout(1000);
+    }
   });
 }
 
