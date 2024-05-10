@@ -168,7 +168,7 @@ async function execLoop(
                       e.respose ? e.response?.data || e.response : e
                     }`
                   );
-                  await setTimeout(100);
+                  await setTimeout(1000);
                 });
             }
 
@@ -178,9 +178,6 @@ async function execLoop(
                   acc + Number(price) * Number(quantity),
                 0
               );
-
-            let obIndicator: boolean;
-            let posIndicator: boolean;
 
             const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
             const asksWeight = calculateWeight(orderBook.asks) * 1.05;
@@ -271,7 +268,7 @@ async function execLoop(
                         2
                       )}`
                     );
-                    await setTimeout(100);
+                    await setTimeout(1000);
                   });
                 break;
               } else {
@@ -288,7 +285,7 @@ async function execLoop(
                       2
                     )}`
                   );
-                  await setTimeout(100);
+                  await setTimeout(1000);
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
