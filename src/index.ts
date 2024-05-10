@@ -242,12 +242,10 @@ async function execLoop(
               totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
               !cancelledOrders
             ) {
-              retry(() =>
-                client.RestAuthenticatedClient.cancelOrders({
-                  ...client.getWalletAndNonce,
-                  market: marketID,
-                })
-              )
+              client.RestAuthenticatedClient.cancelOrders({
+                ...client.getWalletAndNonce,
+                market: marketID,
+              })
                 .then((res) => {
                   totalOrdersCount -= res.length;
                   logger.info(
@@ -343,12 +341,10 @@ async function execLoop(
                 totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
                 !cancelledOrders
               ) {
-                retry(() =>
-                  client.RestAuthenticatedClient.cancelOrders({
-                    ...client.getWalletAndNonce,
-                    // market: previousMarket,
-                  })
-                )
+                client.RestAuthenticatedClient.cancelOrders({
+                  ...client.getWalletAndNonce,
+                  // market: previousMarket,
+                })
                   .then((res) => {
                     totalOrdersCount -= res.length;
                     logger.info(
@@ -411,7 +407,7 @@ async function execLoop(
                 2
               )}`
             );
-            await setTimeout(5000)
+            await setTimeout(5000);
           }
 
           process.env.COOLDOWN === "true" &&
