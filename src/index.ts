@@ -56,7 +56,7 @@ async function wsHandler(
   markets: ExtendedIDEXMarket[]
 ) {
   const ws = await wsClient();
-  ws.connect(true);
+  await ws.connect();
   await handleWsOperation(ws, marketsSubscription, markets);
 }
 
@@ -66,10 +66,10 @@ async function handleWsOperation(
   markets: ExtendedIDEXMarket[]
 ) {
   let reconnectionAttempts = 0;
-  const maxReconnectionAttempts = 5;
+  const maxReconnectionAttempts = 100;
   let isReconnecting = false;
 
-  async function subscribe() {
+  function subscribe() {
     ws.subscribePublic(
       // @ts-ignore
       [idex.SubscriptionName.l1orderbook],
@@ -77,9 +77,10 @@ async function handleWsOperation(
     );
   }
 
+  subscribe();
+
   ws.onConnect(() => {
     reconnectionAttempts = 0;
-    subscribe();
   });
 
   ws.onMessage((message) => {
@@ -99,8 +100,10 @@ async function handleWsOperation(
     if (!isReconnecting && reconnectionAttempts < maxReconnectionAttempts) {
       isReconnecting = true;
       reconnectionAttempts++;
-      await setTimeout(1000 * Math.pow(2, reconnectionAttempts));
-      ws.connect(true);
+      await setTimeout(1000 * reconnectionAttempts);
+      ws.disconnect();
+      await ws.connect();
+      subscribe();
       isReconnecting = false;
     } else if (reconnectionAttempts >= maxReconnectionAttempts) {
       logger.error("Max reconnection attempts reached, stopping reconnection.");
@@ -114,8 +117,10 @@ async function handleWsOperation(
     if (!isReconnecting && reconnectionAttempts < maxReconnectionAttempts) {
       isReconnecting = true;
       reconnectionAttempts++;
-      await setTimeout(1000 * Math.pow(2, reconnectionAttempts));
-      ws.connect(true);
+      await setTimeout(1000 * reconnectionAttempts);
+      ws.disconnect();
+      await ws.connect();
+      subscribe();
       isReconnecting = false;
     } else if (reconnectionAttempts >= maxReconnectionAttempts) {
       logger.error("Max reconnection attempts reached, stopping reconnection.");
