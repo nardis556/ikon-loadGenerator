@@ -272,9 +272,6 @@ async function execLoop(
                 0
               );
 
-            let obIndicator: boolean;
-            let posIndicator: boolean;
-
             const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
             const asksWeight = calculateWeight(orderBook.asks) * 1.05;
 
