@@ -135,7 +135,7 @@ async function pollData(
           2
         )}`
       );
-      await setTimeout(100);
+      await setTimeout(1000);
       initializeMarketData(marketID, accountKey);
     }
     await setTimeout(10000);
@@ -161,7 +161,7 @@ async function startPolling(
                 (error.response ? error.response?.data : error, null, 2)
               }`
             );
-            await setTimeout(100);
+            await setTimeout(1000);
           });
         case "openOrders":
           return client.RestAuthenticatedClient.getOrders({
@@ -173,7 +173,7 @@ async function startPolling(
                 (error.response ? error.response?.data : error, null, 2)
               }`
             );
-            await setTimeout(100);
+            await setTimeout(1000);
           });
         case "orderBook":
           return client.RestPublicClient.getOrderBookLevel2({
@@ -185,7 +185,7 @@ async function startPolling(
                 (error.response ? error.response?.data : error, null, 2)
               }`
             );
-            await setTimeout(100);
+            await setTimeout(1000);
           });
       }
     });
@@ -257,7 +257,9 @@ async function execLoop(
                 })
                 .catch(async (e) => {
                   logger.error(
-                    `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                    `Error cancelling orders for ${accountKey} on market ${marketID}: ${
+                      e.respose ? e.response?.data || e.response : e
+                    }`
                   );
                   await setTimeout(100);
                 });
@@ -274,7 +276,7 @@ async function execLoop(
             let posIndicator: boolean;
 
             const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
-            const asksWeight = calculateWeight(orderBook.asks) * 1.05
+            const asksWeight = calculateWeight(orderBook.asks) * 1.05;
 
             if (bidsWeight > (bidsWeight + asksWeight) / 2) {
               side = idex.OrderSide.sell;
@@ -356,7 +358,11 @@ async function execLoop(
                   })
                   .catch(async (e) => {
                     logger.error(
-                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                        e.response ? e.response?.data || e.response : e,
+                        null,
+                        2
+                      )}`
                     );
                     await setTimeout(100);
                   });
@@ -370,7 +376,7 @@ async function execLoop(
                 }).catch(async (e) => {
                   logger.error(
                     `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                      e.response ? e.response?.data : e,
+                      e.response ? e.response?.data || e.response : e,
                       null,
                       2
                     )}`
