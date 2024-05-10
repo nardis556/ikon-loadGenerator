@@ -219,6 +219,7 @@ async function execLoop(
       let side = initSide;
       for (const [accountKey, client] of Object.entries(clients)) {
         let updatedMarkets = markets;
+        let cancelledOrders: boolean = false;
         for (const market of updatedMarkets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
 
@@ -237,30 +238,29 @@ async function execLoop(
             totalOrdersCount = +openOrders.length;
             let alreadyCancelled = false;
 
-            if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-              if (!alreadyCancelled) {
+            if (
+              totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
+              !cancelledOrders
+            ) {
+              retry(() =>
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                   market: marketID,
                 })
-                  .then((cancelledOrders) => {
-                    totalOrdersCount -= cancelledOrders.length;
-                    logger.info(
-                      `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                    );
-                    alreadyCancelled = true;
-                  })
-                  .catch(async (e) => {
-                    logger.error(
-                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                        e.response ? e.response?.data : e,
-                        null,
-                        2
-                      )}`
-                    );
-                    await setTimeout(100);
-                  });
-              }
+              )
+                .then((res) => {
+                  totalOrdersCount -= res.length;
+                  logger.info(
+                    `Cancelled ${res.length} orders for ${accountKey} due to limit exceedance.`
+                  );
+                  cancelledOrders = true;
+                })
+                .catch(async (e) => {
+                  logger.error(
+                    `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                  );
+                  await setTimeout(100);
+                });
             }
 
             const calculateWeight = (orders: any) =>
@@ -273,8 +273,8 @@ async function execLoop(
             let obIndicator: boolean;
             let posIndicator: boolean;
 
-            const bidsWeight = calculateWeight(orderBook.bids) * 0.9;
-            const asksWeight = calculateWeight(orderBook.asks) * 1.1;
+            const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
+            const asksWeight = calculateWeight(orderBook.asks) * 1.05
 
             if (bidsWeight > (bidsWeight + asksWeight) / 2) {
               side = idex.OrderSide.sell;
@@ -288,7 +288,7 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) > 0 &&
               Math.abs(Number(openPositions[0].quantity)) >
-                Number(market.maximumPositionSize) / 1.5
+                Number(market.maximumPositionSize) / 2
             ) {
               side = idex.OrderSide.sell;
               runMarket = false;
@@ -296,7 +296,7 @@ async function execLoop(
               openPositions.length !== 0 &&
               Number(openPositions[0].quantity) < 0 &&
               Math.abs(Number(openPositions[0].quantity)) <
-                Number(market.maximumPositionSize) / 1.5
+                Number(market.maximumPositionSize) / 2
             ) {
               side = idex.OrderSide.buy;
               runMarket = false;
@@ -337,30 +337,29 @@ async function execLoop(
               if (orderParam.quantity < Number(market.makerOrderMinimum)) {
                 orderParam.quantity = market.makerOrderMinimum;
               }
-              if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-                if (!alreadyCancelled) {
+              if (
+                totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
+                !cancelledOrders
+              ) {
+                retry(() =>
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
-                    market: marketID,
+                    // market: previousMarket,
                   })
-                    .then((cancelledOrders) => {
-                      totalOrdersCount -= cancelledOrders.length;
-                      logger.info(
-                        `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                      );
-                      alreadyCancelled = true;
-                    })
-                    .catch(async (e) => {
-                      logger.error(
-                        `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-                          e.response ? e.response?.data : e,
-                          null,
-                          2
-                        )}`
-                      );
-                      await setTimeout(100);
-                    });
-                }
+                )
+                  .then((res) => {
+                    totalOrdersCount -= res.length;
+                    logger.info(
+                      `Cancelled ${res.length} orders for ${accountKey} due to limit exceedance.`
+                    );
+                    cancelledOrders = true;
+                  })
+                  .catch(async (e) => {
+                    logger.error(
+                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                    );
+                    await setTimeout(100);
+                  });
                 break;
               } else {
                 totalOrdersCount++;
