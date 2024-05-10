@@ -334,7 +334,6 @@ async function execLoop(
                 !runMarket &&
                 orderParam.type.toLowerCase().includes("market")
               ) {
-                console.log(`skipping market`);
                 continue;
               }
               if (orderParam.quantity < Number(market.makerOrderMinimum)) {
