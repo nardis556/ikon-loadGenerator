@@ -55,29 +55,33 @@ async function wsHandler(
   marketsSubscription: string[],
   markets: ExtendedIDEXMarket[]
 ) {
-  let disconnect = false;
   const ws = await wsClient();
   ws.connect(true);
-  function subscribe() {
+  await handleWsOperation(ws, marketsSubscription, markets);
+}
+
+async function handleWsOperation(
+  ws: idex.WebSocketClient,
+  marketsSubscription: string[],
+  markets: ExtendedIDEXMarket[]
+) {
+  let reconnectionAttempts = 0;
+  const maxReconnectionAttempts = 5;
+  let isReconnecting = false;
+
+  async function subscribe() {
     ws.subscribePublic(
       // @ts-ignore
       [idex.SubscriptionName.l1orderbook],
       marketsSubscription
     );
-    disconnect = false;
   }
-  disconnect = await handleWsOperation(ws, subscribe, markets, disconnect);
-}
 
-async function handleWsOperation(
-  ws: idex.WebSocketClient,
-  subscribe: () => void,
-  markets: ExtendedIDEXMarket[],
-  disconnect: boolean
-) {
   ws.onConnect(() => {
+    reconnectionAttempts = 0;
     subscribe();
   });
+
   ws.onMessage((message) => {
     if (message.type === idex.SubscriptionName.l1orderbook) {
       markets.forEach((market) => {
@@ -92,23 +96,31 @@ async function handleWsOperation(
 
   ws.onError(async (error) => {
     logger.error(`onError in wsOb function: ${JSON.stringify(error, null, 2)}`);
-    disconnect = true;
-    while (disconnect) {
-      subscribe();
-      await setTimeout(1000);
+    if (!isReconnecting && reconnectionAttempts < maxReconnectionAttempts) {
+      isReconnecting = true;
+      reconnectionAttempts++;
+      await setTimeout(1000 * Math.pow(2, reconnectionAttempts));
+      ws.connect(true);
+      isReconnecting = false;
+    } else if (reconnectionAttempts >= maxReconnectionAttempts) {
+      logger.error("Max reconnection attempts reached, stopping reconnection.");
     }
   });
+
   ws.onDisconnect(async (e) => {
     logger.debug(
       `onDisconnect in wsOb function: ${JSON.stringify(e, null, 2)}`
     );
-    disconnect = true;
-    while (disconnect) {
-      subscribe();
-      await setTimeout(1000);
+    if (!isReconnecting && reconnectionAttempts < maxReconnectionAttempts) {
+      isReconnecting = true;
+      reconnectionAttempts++;
+      await setTimeout(1000 * Math.pow(2, reconnectionAttempts));
+      ws.connect(true);
+      isReconnecting = false;
+    } else if (reconnectionAttempts >= maxReconnectionAttempts) {
+      logger.error("Max reconnection attempts reached, stopping reconnection.");
     }
   });
-  return disconnect;
 }
 
 const marketData = {};
