@@ -261,7 +261,7 @@ async function execLoop(
                       e.respose ? e.response?.data || e.response : e
                     }`
                   );
-                  await setTimeout(100);
+                  await setTimeout(1000);
                 });
             }
 
@@ -361,7 +361,7 @@ async function execLoop(
                         2
                       )}`
                     );
-                    await setTimeout(100);
+                    await setTimeout(1000);
                   });
                 break;
               } else {
@@ -378,7 +378,7 @@ async function execLoop(
                       2
                     )}`
                   );
-                  await setTimeout(100);
+                  await setTimeout(1000);
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
