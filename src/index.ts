@@ -247,7 +247,10 @@ async function execLoop(
               if (orderParam.quantity < Number(market.makerOrderMinimum)) {
                 orderParam.quantity = market.makerOrderMinimum;
               }
-              if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
+              if (
+                totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
+                !cancelledOrders
+              ) {
                 retry(() =>
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
