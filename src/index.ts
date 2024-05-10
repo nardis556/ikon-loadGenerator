@@ -51,54 +51,53 @@ const main = async () => {
   await execLoop(clients, initSide as idex.OrderSide);
 };
 
-async function wsHandler(marketsSubscription, markets) {
+async function wsHandler(
+  marketsSubscription: string[],
+  markets: ExtendedIDEXMarket[]
+) {
+  let disconnect = false;
   const ws = await wsClient();
-  ws.connect();
-
+  ws.connect(true);
   function subscribe() {
     ws.subscribePublic(
       // @ts-ignore
       [idex.SubscriptionName.l1orderbook],
       marketsSubscription
     );
+    disconnect = false;
   }
-
   ws.onConnect(() => {
-    console.log("WebSocket connected, subscribing to markets.");
     subscribe();
   });
-
   ws.onMessage((message) => {
     if (message.type === idex.SubscriptionName.l1orderbook) {
       markets.forEach((market) => {
-        const marketId = `${market.baseAsset}-${market.quoteAsset}`;
-        if (marketId === message.data.market) {
+        if (
+          `${market.baseAsset}-${market.quoteAsset}` === message.data.market
+        ) {
           market.wsIndexPrice = message.data.indexPrice;
         }
       });
     }
   });
 
-  ws.onError((error) => {
-    logger.error(
-      `WebSocket onError in wsHandler function: ${JSON.stringify(
-        error,
-        null,
-        2
-      )}`
-    );
-    subscribe();
+  ws.onError(async (error) => {
+    logger.error(`onError in wsOb function: ${JSON.stringify(error, null, 2)}`);
+    disconnect = true;
+    while (disconnect) {
+      subscribe();
+      await setTimeout(1000);
+    }
   });
-
-  ws.onDisconnect((e) => {
+  ws.onDisconnect(async (e) => {
     logger.debug(
-      `WebSocket onDisconnect in wsHandler function: ${JSON.stringify(
-        e,
-        null,
-        2
-      )}`
+      `onDisconnect in wsOb function: ${JSON.stringify(e, null, 2)}`
     );
-    subscribe();
+    disconnect = true;
+    while (disconnect) {
+      subscribe();
+      await setTimeout(1000);
+    }
   });
 }
 
@@ -119,6 +118,7 @@ async function execLoop(
     try {
       for (const [accountKey, client] of Object.entries(clients)) {
         let updatedMarkets = markets;
+        let cancelledOrders: boolean = false;
         for (const market of updatedMarkets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           let totalOrdersCount: number;
@@ -146,17 +146,29 @@ async function execLoop(
 
             totalOrdersCount = +openOrders.length;
 
-            if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-              const cancelledOrders = await retry(() =>
+            if (
+              totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
+              !cancelledOrders
+            ) {
+              retry(() =>
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                   market: marketID,
                 })
-              );
-              totalOrdersCount -= cancelledOrders.length;
-              logger.info(
-                `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-              );
+              )
+                .then((res) => {
+                  totalOrdersCount -= res.length;
+                  logger.info(
+                    `Cancelled ${res.length} orders for ${accountKey} due to limit exceedance.`
+                  );
+                  cancelledOrders = true;
+                })
+                .catch(async (e) => {
+                  logger.error(
+                    `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                  );
+                  await setTimeout(100);
+                });
             }
 
             const calculateWeight = (orders: any) =>
@@ -236,16 +248,25 @@ async function execLoop(
                 orderParam.quantity = market.makerOrderMinimum;
               }
               if (totalOrdersCount >= Number(process.env.OPEN_ORDERS)) {
-                const cancelledOrders = await retry(() =>
+                retry(() =>
                   client.RestAuthenticatedClient.cancelOrders({
                     ...client.getWalletAndNonce,
                     // market: previousMarket,
                   })
-                );
-                totalOrdersCount -= cancelledOrders.length;
-                logger.info(
-                  `Cancelled ${cancelledOrders.length} orders for ${accountKey} due to limit exceedance.`
-                );
+                )
+                  .then((res) => {
+                    totalOrdersCount -= res.length;
+                    logger.info(
+                      `Cancelled ${res.length} orders for ${accountKey} due to limit exceedance.`
+                    );
+                    cancelledOrders = true;
+                  })
+                  .catch(async (e) => {
+                    logger.error(
+                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                    );
+                    await setTimeout(100);
+                  });
                 break;
               } else {
                 totalOrdersCount++;
@@ -253,10 +274,11 @@ async function execLoop(
                 const order = client.RestAuthenticatedClient.createOrder({
                   ...orderParam,
                   ...client.getWalletAndNonce,
-                }).catch((e) => {
+                }).catch(async (e) => {
                   logger.error(
                     `Error creating order for ${accountKey} on market ${marketID}: ${e.message}`
                   );
+                  await setTimeout(100);
                 });
 
                 logger.debug(JSON.stringify(order, null, 2));
