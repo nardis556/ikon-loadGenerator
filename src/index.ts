@@ -412,7 +412,7 @@ async function execLoop(
                 2
               )}`
             );
-            await setTimeout(100);
+            await setTimeout(5000)
           }
 
           process.env.COOLDOWN === "true" &&
@@ -444,7 +444,7 @@ async function execLoop(
           2
         )}`
       );
-      await setTimeout(100);
+      await setTimeout(5000);
       continue;
     }
   }
