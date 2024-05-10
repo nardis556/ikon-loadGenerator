@@ -66,6 +66,15 @@ async function wsHandler(
     );
     disconnect = false;
   }
+  disconnect = await handleWsOperation(ws, subscribe, markets, disconnect);
+}
+
+async function handleWsOperation(
+  ws: idex.WebSocketClient,
+  subscribe: () => void,
+  markets: ExtendedIDEXMarket[],
+  disconnect: boolean
+) {
   ws.onConnect(() => {
     subscribe();
   });
@@ -99,6 +108,7 @@ async function wsHandler(
       await setTimeout(1000);
     }
   });
+  return disconnect;
 }
 
 async function fetchData(client: IClient, marketID: string): Promise<any> {
