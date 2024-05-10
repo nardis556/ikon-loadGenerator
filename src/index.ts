@@ -340,6 +340,7 @@ async function execLoop(
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
+      await setTimeout(5000)
       continue;
     }
   }
