@@ -314,6 +314,7 @@ async function execLoop(
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
+            await setTimeout(5000)
           }
 
           process.env.COOLDOWN === "true" &&
