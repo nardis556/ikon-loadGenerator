@@ -330,7 +330,11 @@ async function execLoop(
             );
 
             for (const orderParam of orderParams) {
-              if (!runMarket && orderParam.type.includes("market")) {
+              if (
+                !runMarket &&
+                orderParam.type.toLowerCase().includes("market")
+              ) {
+                console.log(`skipping market`);
                 continue;
               }
               if (orderParam.quantity < Number(market.makerOrderMinimum)) {
