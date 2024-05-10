@@ -145,7 +145,6 @@ async function execLoop(
             ]);
 
             totalOrdersCount = +openOrders.length;
-
             if (
               totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
               !cancelledOrders
@@ -165,7 +164,9 @@ async function execLoop(
                 })
                 .catch(async (e) => {
                   logger.error(
-                    `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                    `Error cancelling orders for ${accountKey} on market ${marketID}: ${
+                      e.respose ? e.response?.data || e.response : e
+                    }`
                   );
                   await setTimeout(100);
                 });
@@ -181,8 +182,8 @@ async function execLoop(
             let obIndicator: boolean;
             let posIndicator: boolean;
 
-            const bidsWeight = calculateWeight(orderBook.bids);
-            const asksWeight = calculateWeight(orderBook.asks);
+            const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
+            const asksWeight = calculateWeight(orderBook.asks) * 1.05;
 
             if (bidsWeight > (bidsWeight + asksWeight) / 2) {
               side = idex.OrderSide.sell;
@@ -217,8 +218,6 @@ async function execLoop(
                   : `placing SELL orders ${market.wsIndexPrice}`
               }`
             );
-
-            // "test"
 
             const quantity =
               Number(market.makerOrderMinimum) *
@@ -266,7 +265,11 @@ async function execLoop(
                   })
                   .catch(async (e) => {
                     logger.error(
-                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
+                      `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                        e.response ? e.response?.data || e.response : e,
+                        null,
+                        2
+                      )}`
                     );
                     await setTimeout(100);
                   });
@@ -279,7 +282,11 @@ async function execLoop(
                   ...client.getWalletAndNonce,
                 }).catch(async (e) => {
                   logger.error(
-                    `Error creating order for ${accountKey} on market ${marketID}: ${e.message}`
+                    `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
+                      e.response ? e.response?.data || e.response : e,
+                      null,
+                      2
+                    )}`
                   );
                   await setTimeout(100);
                 });
