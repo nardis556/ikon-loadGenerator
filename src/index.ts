@@ -463,7 +463,7 @@ async function CreateOrder(
   accountKey: string,
   marketID: string
 ) {
-  return client.RestAuthenticatedClient.createOrder({
+  client.RestAuthenticatedClient.createOrder({
     ...orderParam,
     ...client.getWalletAndNonce,
   }).catch(async (e) => {
