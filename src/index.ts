@@ -178,6 +178,10 @@ async function execLoop(
               marketID
             );
 
+            if (orderBook.indexPrice) {
+              market.wsIndexPrice = orderBook.indexPrice;
+            }
+
             totalOrdersCount = +openOrders.length;
             if (
               totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
