@@ -260,6 +260,10 @@ async function execLoop(
                     orderBook: { bids: [], asks: [] },
                   };
 
+            if (orderBook.indexPrice) {
+              market.wsIndexPrice = orderBook.indexPrice;
+            }
+
             let totalOrdersCount: number;
 
             totalOrdersCount = +openOrders.length;
