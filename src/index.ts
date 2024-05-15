@@ -65,11 +65,32 @@ function calculateBestPrice(
   bestBid: string,
   indexPrice: string
 ) {
-  const weightedBid = Number(process.env.BEST_BID_WEIGHT) * Number(bestBid);
-  const weightedAsk = Number(process.env.BEST_ASK_WEIGHT) * Number(bestAsk);
-  const weightedIndex =
-    Number(process.env.INDEX_PRICE_WEIGHT) * Number(indexPrice);
-  return (weightedBid + weightedAsk + weightedIndex) / 3;
+  const parsedBestBid = Number(bestBid) || 0;
+  const parsedBestAsk = Number(bestAsk) || 0;
+  const parsedIndexPrice = Number(indexPrice);
+
+  const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
+  const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
+  const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
+
+  if (parsedBestBid === 0 && parsedBestAsk === 0) {
+    return parsedIndexPrice.toFixed(8);
+  }
+
+  let totalWeight = indexWeight;
+  let totalValue = indexWeight * parsedIndexPrice;
+
+  if (parsedBestBid > 0) {
+    totalWeight += bidWeight;
+    totalValue += bidWeight * parsedBestBid;
+  }
+
+  if (parsedBestAsk > 0) {
+    totalWeight += askWeight;
+    totalValue += askWeight * parsedBestAsk;
+  }
+
+  return (totalValue / totalWeight).toFixed(8);
 }
 
 async function handleWsOperation(
@@ -233,29 +254,29 @@ async function execLoop(
 
             let runMarket = true;
 
-            if (
-              openPositions.length !== 0 &&
-              Number(openPositions[0].quantity) > 0 &&
-              Math.abs(Number(openPositions[0].quantity)) >
-                Number(market.maximumPositionSize) / 2
-            ) {
-              side = idex.OrderSide.sell;
-              runMarket = false;
-            } else if (
-              openPositions.length !== 0 &&
-              Number(openPositions[0].quantity) < 0 &&
-              Math.abs(Number(openPositions[0].quantity)) <
-                Number(market.maximumPositionSize) / 2
-            ) {
-              side = idex.OrderSide.buy;
-              runMarket = false;
-            }
+            // if (
+            //   openPositions.length !== 0 &&
+            //   Number(openPositions[0].quantity) > 0 &&
+            //   Math.abs(Number(openPositions[0].quantity)) >
+            //     Number(market.maximumPositionSize) / 2
+            // ) {
+            //   side = idex.OrderSide.sell;
+            //   runMarket = false;
+            // } else if (
+            //   openPositions.length !== 0 &&
+            //   Number(openPositions[0].quantity) < 0 &&
+            //   Math.abs(Number(openPositions[0].quantity)) <
+            //     Number(market.maximumPositionSize) / 2
+            // ) {
+            //   side = idex.OrderSide.buy;
+            //   runMarket = false;
+            // }
 
             logger.info(
               `${
                 side === "buy"
-                  ? `placing BUY  orders at ${market.bestPrice}`
-                  : `placing SELL orders ${market.bestPrice}`
+                  ? `placing BUY  orders at ${market.bestPrice}. IP: ${market.indexPrice}`
+                  : `placing SELL orders ${market.bestPrice} IP: ${market.indexPrice}`
               }`
             );
 
