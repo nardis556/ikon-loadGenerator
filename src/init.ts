@@ -17,6 +17,9 @@ export interface ExtendedIDEXMarket extends IDEXMarket {
   priceIncrement: number;
   iterations: number;
   wsIndexPrice: any;
+  bestPrice: any;
+  bestBid: any;
+  bestAsk: any;
 }
 
 const initAuth = {
@@ -66,6 +69,9 @@ export const fetchMarkets = async (): Promise<ExtendedIDEXMarket[]> => {
             10
           ),
           wsIndexPrice: market.indexPrice,
+          bestPrice: market.indexPrice,
+          bestBid: market.indexPrice,
+          bestAsk: market.indexPrice,
         })
       );
 
@@ -127,7 +133,7 @@ export async function initializeAccounts(
         })
       );
       clients[accountKey] = client;
-      logger.debug(
+      logger.info(
         `Wallet successfully associated for ${accountKey} with wallet ${client.getWalletAndNonce.wallet}`
       );
     } catch (e) {
@@ -156,7 +162,7 @@ export async function initializeCancels(
         })
       );
       clients[accountKey] = client;
-      logger.debug(
+      logger.info(
         `Orders for ${accountKey} successfully cancelled orders for wallet ${client.getWalletAndNonce.wallet}`
       );
     } catch (e) {

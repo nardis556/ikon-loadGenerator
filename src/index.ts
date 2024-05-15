@@ -60,6 +60,18 @@ async function wsHandler(
   await handleWsOperation(ws, marketsSubscription, markets);
 }
 
+function calculateBestPrice(
+  bestAsk: string,
+  bestBid: string,
+  indexPrice: string
+) {
+  const weightedBid = Number(process.env.BEST_BID_WEIGHT) * Number(bestBid);
+  const weightedAsk = Number(process.env.BEST_ASK_WEIGHT) * Number(bestAsk);
+  const weightedIndex =
+    Number(process.env.INDEX_PRICE_WEIGHT) * Number(indexPrice);
+  return (weightedBid + weightedAsk + weightedIndex) / 3;
+}
+
 async function handleWsOperation(
   ws: idex.WebSocketClient,
   marketsSubscription: string[],
@@ -90,6 +102,13 @@ async function handleWsOperation(
           `${market.baseAsset}-${market.quoteAsset}` === message.data.market
         ) {
           market.wsIndexPrice = message.data.indexPrice;
+          market.bestAsk = message.data.askPrice;
+          market.bestBid = message.data.bidPrice;
+          market.bestPrice = calculateBestPrice(
+            market.bestAsk,
+            market.bestBid,
+            market.wsIndexPrice
+          );
         }
       });
     }
@@ -235,8 +254,8 @@ async function execLoop(
             logger.info(
               `${
                 side === "buy"
-                  ? `placing BUY  orders at ${market.wsIndexPrice}`
-                  : `placing SELL orders ${market.wsIndexPrice}`
+                  ? `placing BUY  orders at ${market.bestPrice}`
+                  : `placing SELL orders ${market.bestPrice}`
               }`
             );
 
@@ -249,7 +268,7 @@ async function execLoop(
                 ));
 
             const orderParams = generateOrderTemplate(
-              Number(market.wsIndexPrice),
+              Number(market.bestPrice),
               quantity,
               Number(market.takerOrderMinimum),
               market.quantityRes,
