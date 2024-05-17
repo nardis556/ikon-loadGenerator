@@ -51,81 +51,94 @@ const main = async () => {
   await execLoop(clients, initSide as idex.OrderSide);
 };
 
-async function wsHandler(
-  marketsSubscription: string[],
-  markets: ExtendedIDEXMarket[]
-) {
-  const ws = await wsClient();
-  await ws.connect();
-  await handleWsOperation(ws, marketsSubscription, markets);
-}
+class WebSocketHandler {
+  private ws: idex.WebSocketClient;
+  private marketsSubscription: string[];
+  private markets: ExtendedIDEXMarket[];
+  private reconnectionAttempts: number = 0;
+  private maxReconnectionAttempts: number = 100;
+  private isReconnecting: boolean = false;
 
-function calculateBestPrice(
-  bestAsk: string,
-  bestBid: string,
-  indexPrice: string
-) {
-  const parsedBestBid = Number(bestBid) || 0;
-  const parsedBestAsk = Number(bestAsk) || 0;
-  const parsedIndexPrice = Number(indexPrice);
-
-  const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
-  const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
-  const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
-
-  if (parsedBestBid === 0 && parsedBestAsk === 0) {
-    return parsedIndexPrice.toFixed(8);
+  constructor(marketsSubscription: string[], markets: ExtendedIDEXMarket[]) {
+    this.marketsSubscription = marketsSubscription;
+    this.markets = markets;
   }
 
-  let totalWeight = indexWeight;
-  let totalValue = indexWeight * parsedIndexPrice;
-
-  if (parsedBestBid > 0) {
-    totalWeight += bidWeight;
-    totalValue += bidWeight * parsedBestBid;
+  async initWebSocket() {
+    this.ws = await wsClient();
+    this.setupEventListeners();
+    await this.ws.connect();
+    this.subscribe();
   }
 
-  if (parsedBestAsk > 0) {
-    totalWeight += askWeight;
-    totalValue += askWeight * parsedBestAsk;
+  private setupEventListeners() {
+    this.ws.onConnect(() => {
+      this.reconnectionAttempts = 0;
+    });
+
+    this.ws.onMessage((message: any) => this.handleMessage(message));
+
+    this.ws.onError(async (error) => this.handleError(error));
+
+    this.ws.onDisconnect(async (e) => this.handleDisconnect(e));
   }
 
-  return (totalValue / totalWeight).toFixed(8);
-}
-
-async function handleWsOperation(
-  ws: idex.WebSocketClient,
-  marketsSubscription: string[],
-  markets: ExtendedIDEXMarket[]
-) {
-  let reconnectionAttempts = 0;
-  const maxReconnectionAttempts = 100;
-  let isReconnecting = false;
-
-  function subscribe() {
-    ws.subscribePublic(
-      // @ts-ignore
-      [idex.SubscriptionName.l1orderbook],
-      marketsSubscription
+  private subscribe() {
+    this.ws.subscribePublic(
+      [
+        {
+          name: idex.SubscriptionName.l1orderbook,
+        },
+      ],
+      this.marketsSubscription
     );
   }
 
-  subscribe();
+  private async handleError(error: any) {
+    logger.error(`WebSocket error: ${JSON.stringify(error, null, 2)}`);
+    if (
+      !this.isReconnecting &&
+      this.reconnectionAttempts < this.maxReconnectionAttempts
+    ) {
+      this.isReconnecting = true;
+      this.reconnectionAttempts++;
+      await this.attemptReconnection();
+    } else if (this.reconnectionAttempts >= this.maxReconnectionAttempts) {
+      console.error(
+        "Max reconnection attempts reached, stopping reconnection."
+      );
+    }
+  }
 
-  ws.onConnect(() => {
-    reconnectionAttempts = 0;
-  });
+  private async handleDisconnect(e) {
+    logger.debug(`WebSocket disconnected: ${JSON.stringify(e, null, 2)}`);
+    if (
+      !this.isReconnecting &&
+      this.reconnectionAttempts < this.maxReconnectionAttempts
+    ) {
+      this.isReconnecting = true;
+      this.reconnectionAttempts++;
+      await this.attemptReconnection();
+    }
+  }
 
-  ws.onMessage((message) => {
+  private async attemptReconnection() {
+    await setTimeout(1000 * this.reconnectionAttempts);
+    await this.ws.connect();
+    this.subscribe();
+    this.isReconnecting = false;
+  }
+
+  private handleMessage(message: any) {
     if (message.type === idex.SubscriptionName.l1orderbook) {
-      markets.forEach((market) => {
+      this.markets.forEach((market) => {
         if (
           `${market.baseAsset}-${market.quoteAsset}` === message.data.market
         ) {
           market.wsIndexPrice = message.data.indexPrice;
           market.bestAsk = message.data.askPrice;
           market.bestBid = message.data.bidPrice;
-          market.bestPrice = calculateBestPrice(
+          market.bestPrice = this.calculateBestPrice(
             market.bestAsk,
             market.bestBid,
             market.wsIndexPrice
@@ -133,41 +146,40 @@ async function handleWsOperation(
         }
       });
     }
-  });
+  }
+  private calculateBestPrice(
+    bestAsk: string,
+    bestBid: string,
+    indexPrice: string
+  ) {
+    const parsedBestBid = Number(bestBid) || 0;
+    const parsedBestAsk = Number(bestAsk) || 0;
+    const parsedIndexPrice = Number(indexPrice);
 
-  ws.onError(async (error) => {
-    logger.error(`onError in wsOb function: ${JSON.stringify(error, null, 2)}`);
-    if (!isReconnecting && reconnectionAttempts < maxReconnectionAttempts) {
-      isReconnecting = true;
-      reconnectionAttempts++;
-      await setTimeout(1000 * reconnectionAttempts);
-      ws.disconnect();
-      await ws.connect();
-      subscribe();
-      isReconnecting = false;
-    } else if (reconnectionAttempts >= maxReconnectionAttempts) {
-      logger.error("Max reconnection attempts reached, stopping reconnection.");
-    }
-  });
+    const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
+    const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
+    const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
 
-  ws.onDisconnect(async (e) => {
-    logger.debug(
-      `onDisconnect in wsOb function: ${JSON.stringify(e, null, 2)}`
-    );
-    if (!isReconnecting && reconnectionAttempts < maxReconnectionAttempts) {
-      isReconnecting = true;
-      reconnectionAttempts++;
-      await setTimeout(1000 * reconnectionAttempts);
-      ws.disconnect();
-      await ws.connect();
-      subscribe();
-      isReconnecting = false;
-    } else if (reconnectionAttempts >= maxReconnectionAttempts) {
-      logger.error("Max reconnection attempts reached, stopping reconnection.");
+    if (parsedBestBid === 0 && parsedBestAsk === 0) {
+      return parsedIndexPrice.toFixed(8);
     }
-  });
+
+    let totalWeight = indexWeight;
+    let totalValue = indexWeight * parsedIndexPrice;
+
+    if (parsedBestBid > 0) {
+      totalWeight += bidWeight;
+      totalValue += bidWeight * parsedBestBid;
+    }
+
+    if (parsedBestAsk > 0) {
+      totalWeight += askWeight;
+      totalValue += askWeight * parsedBestAsk;
+    }
+
+    return (totalValue / totalWeight).toFixed(8);
+  }
 }
-
 async function fetchData(client: IClient, marketID: string): Promise<any> {
   return await Promise.all([
     retry(() =>
@@ -202,7 +214,8 @@ async function execLoop(
     (m) => `${m.baseAsset}-${m.quoteAsset}`
   );
 
-  await wsHandler(marketsSubscription, markets);
+  const handler = new WebSocketHandler(marketsSubscription, markets);
+  await handler.initWebSocket();
 
   while (true) {
     try {
