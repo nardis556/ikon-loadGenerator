@@ -74,9 +74,7 @@ class WebSocketHandler {
   private setupEventListeners() {
     this.ws.onConnect(() => {
       this.reconnectionAttempts = 0;
-      setTimeout(10000).then(() => {
-        this.ws.disconnect();
-      });
+      logger.info("WebSocket connected.");
     });
 
     this.ws.onMessage((message: any) => this.handleMessage(message));
@@ -98,7 +96,7 @@ class WebSocketHandler {
   }
 
   private async handleError(error: any) {
-    logger.error(`WebSocket error: ${JSON.stringify(error, null, 2)}`);
+    logger.info(`WebSocket error: ${JSON.stringify(error, null, 2)}`);
     if (
       !this.isReconnecting &&
       this.reconnectionAttempts < this.maxReconnectionAttempts
@@ -107,14 +105,12 @@ class WebSocketHandler {
       this.reconnectionAttempts++;
       await this.attemptReconnection();
     } else if (this.reconnectionAttempts >= this.maxReconnectionAttempts) {
-      console.error(
-        "Max reconnection attempts reached, stopping reconnection."
-      );
+      logger.error("Max reconnection attempts reached, stopping reconnection.");
     }
   }
 
-  private async handleDisconnect(e) {
-    logger.debug(`WebSocket disconnected: ${JSON.stringify(e, null, 2)}`);
+  private async handleDisconnect(e: any) {
+    logger.info(`WebSocket disconnected: ${JSON.stringify(e, null, 2)}`);
     if (
       !this.isReconnecting &&
       this.reconnectionAttempts < this.maxReconnectionAttempts
