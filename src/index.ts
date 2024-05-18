@@ -56,7 +56,7 @@ class WebSocketHandler {
   private marketsSubscription: string[];
   private markets: ExtendedIDEXMarket[];
   private reconnectionAttempts: number = 0;
-  private maxReconnectionAttempts: number = 100;
+  private maxReconnectionAttempts: number = 1000;
   private isReconnecting: boolean = false;
 
   constructor(marketsSubscription: string[], markets: ExtendedIDEXMarket[]) {
@@ -96,7 +96,7 @@ class WebSocketHandler {
   }
 
   private async handleError(error: any) {
-    logger.info(`WebSocket error: ${JSON.stringify(error, null, 2)}`);
+    logger.error(`WebSocket error: ${JSON.stringify(error, null, 2)}`);
     if (
       !this.isReconnecting &&
       this.reconnectionAttempts < this.maxReconnectionAttempts
@@ -110,7 +110,7 @@ class WebSocketHandler {
   }
 
   private async handleDisconnect(e: any) {
-    logger.info(`WebSocket disconnected: ${JSON.stringify(e, null, 2)}`);
+    logger.error(`WebSocket disconnected: ${JSON.stringify(e, null, 2)}`);
     if (
       !this.isReconnecting &&
       this.reconnectionAttempts < this.maxReconnectionAttempts
@@ -283,6 +283,8 @@ async function execLoop(
               side
             );
 
+            const orderStartTime = Date.now();
+
             for (const orderParam of orderParams) {
               if (
                 !runMarket &&
@@ -336,6 +338,13 @@ async function execLoop(
                   ));
               }
             }
+            const orderEndTime = Date.now();
+            const orderDuration = (orderEndTime - orderStartTime) / 1000;
+            const ordersPerSecond =
+              orderDuration > 0 ? currentOrderCount / orderDuration : 0;
+            logger.info(
+              `OPS ${accountKey} ${marketID}: ${ordersPerSecond.toFixed(2)}`
+            );
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
