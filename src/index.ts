@@ -74,6 +74,9 @@ class WebSocketHandler {
   private setupEventListeners() {
     this.ws.onConnect(() => {
       this.reconnectionAttempts = 0;
+      setTimeout(10000).then(() => {
+        this.ws.disconnect();
+      });
     });
 
     this.ws.onMessage((message: any) => this.handleMessage(message));
@@ -135,6 +138,7 @@ class WebSocketHandler {
         if (
           `${market.baseAsset}-${market.quoteAsset}` === message.data.market
         ) {
+          market.indexPrice = message.data.indexPrice;
           market.wsIndexPrice = message.data.indexPrice;
           market.bestAsk = message.data.askPrice;
           market.bestBid = message.data.bidPrice;
@@ -225,15 +229,12 @@ async function execLoop(
         for (const market of updatedMarkets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           let totalOrdersCount: number;
+          let currentOrderCount: number = 0;
           try {
             const [openPositions, openOrders, orderBook] = await fetchData(
               client,
               marketID
             );
-
-            if (orderBook.indexPrice) {
-              market.wsIndexPrice = orderBook.indexPrice;
-            }
 
             totalOrdersCount = +openOrders.length;
             if (
@@ -256,42 +257,15 @@ async function execLoop(
                 0
               );
 
-            const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
-            const asksWeight = calculateWeight(orderBook.asks) * 1.05;
-
-            if (bidsWeight > (bidsWeight + asksWeight) / 2) {
-              side = idex.OrderSide.sell;
-            } else {
-              side = idex.OrderSide.buy;
-            }
-
-            let runMarket = true;
-
-            // if (
-            //   openPositions.length !== 0 &&
-            //   Number(openPositions[0].quantity) > 0 &&
-            //   Math.abs(Number(openPositions[0].quantity)) >
-            //     Number(market.maximumPositionSize) / 2
-            // ) {
-            //   side = idex.OrderSide.sell;
-            //   runMarket = false;
-            // } else if (
-            //   openPositions.length !== 0 &&
-            //   Number(openPositions[0].quantity) < 0 &&
-            //   Math.abs(Number(openPositions[0].quantity)) <
-            //     Number(market.maximumPositionSize) / 2
-            // ) {
-            //   side = idex.OrderSide.buy;
-            //   runMarket = false;
-            // }
-
-            logger.info(
-              `${
-                side === "buy"
-                  ? `placing BUY  orders at ${market.bestPrice}. IP: ${market.indexPrice}`
-                  : `placing SELL orders ${market.bestPrice} IP: ${market.indexPrice}`
-              }`
-            );
+            let runMarket: boolean = true;
+            // @ts-ignore
+            ({ runMarket, side } = validateOrderSide(
+              calculateWeight,
+              orderBook,
+              side,
+              openPositions,
+              market
+            ));
 
             const quantity =
               Number(market.makerOrderMinimum) *
@@ -343,7 +317,9 @@ async function execLoop(
                   orderParam,
                   accountKey,
                   marketID
-                );
+                ).then(() => {
+                  currentOrderCount++;
+                });
 
                 logger.debug(JSON.stringify(order, null, 2));
                 let sideIdentifier =
@@ -354,7 +330,7 @@ async function execLoop(
                 }
 
                 let price = orderParam.price || "market";
-                logger.info(
+                logger.debug(
                   `${accountKey} ${marketID} ${sideIdentifier} order for at ${price}. ${totalOrdersCount}`
                 );
 
@@ -377,10 +353,16 @@ async function execLoop(
             side === idex.OrderSide.buy
               ? idex.OrderSide.sell
               : idex.OrderSide.buy;
+          logger.info(
+            `Finished processing market ${marketID} for ${accountKey}.`
+          );
+          logger.info(
+            `Account ${accountKey} placed ${currentOrderCount} orders.`
+          );
         }
         const cooldownMessage =
           process.env.COOLDOWN === "true"
-            ? `cooldown for ${process.env.COOLDOWN_PER_ACCOUNT} seconds`
+            ? `CD for ${process.env.COOLDOWN_PER_ACCOUNT}s`
             : "";
         logger.info(
           `Finished processing markets for ${accountKey}. ${cooldownMessage}`
@@ -403,6 +385,52 @@ async function execLoop(
 main().catch((error) => {
   logger.error("Error during main function:", error);
 });
+
+function validateOrderSide(
+  calculateWeight: (orders: any) => any,
+  orderBook: any,
+  side: string,
+  openPositions: any,
+  market: ExtendedIDEXMarket
+) {
+  const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
+  const asksWeight = calculateWeight(orderBook.asks) * 1.05;
+
+  if (bidsWeight > (bidsWeight + asksWeight) / 2) {
+    side = idex.OrderSide.sell;
+  } else {
+    side = idex.OrderSide.buy;
+  }
+
+  let runMarket = true;
+
+  if (
+    openPositions.length !== 0 &&
+    Number(openPositions[0].quantity) > 0 &&
+    Math.abs(Number(openPositions[0].quantity)) >
+      Number(market.maximumPositionSize) / 2
+  ) {
+    side = idex.OrderSide.sell;
+    runMarket = false;
+  } else if (
+    openPositions.length !== 0 &&
+    Number(openPositions[0].quantity) < 0 &&
+    Math.abs(Number(openPositions[0].quantity)) <
+      Number(market.maximumPositionSize) / 2
+  ) {
+    side = idex.OrderSide.buy;
+    runMarket = false;
+  }
+
+  logger.info(
+    `${
+      side === "buy"
+        ? `placing BUY  orders at ${market.bestPrice}. IP: ${market.wsIndexPrice}`
+        : `placing SELL orders ${market.bestPrice} IP: ${market.wsIndexPrice}`
+    }`
+  );
+  return { runMarket, side };
+}
 
 async function CancelOrder(
   client: IClient,
