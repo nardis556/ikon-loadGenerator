@@ -416,13 +416,15 @@ function validateOrderSide(
 
       if (
         positionQuantity > 0 &&
-        Math.abs(positionQuantity) <= Number(market.maximumPositionSize) / 2
+        Math.abs(positionQuantity) <= Number(market.maximumPositionSize) / 1.5
       ) {
         runMarket = false;
+        side = idex.OrderSide.sell;
       } else if (
         positionQuantity < 0 &&
-        Math.abs(positionQuantity) <= Number(market.maximumPositionSize) / 2
+        Math.abs(positionQuantity) <= Number(market.maximumPositionSize) / 1.5
       ) {
+        side = idex.OrderSide.buy;
         runMarket = false;
       } else {
         runMarket = true;
