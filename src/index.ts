@@ -198,7 +198,7 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
     retry(() =>
       client.RestPublicClient.getOrderBookLevel2({
         market: marketID,
-        limit: 1000,
+        limit: 200,
       })
     ),
   ]);
