@@ -13,6 +13,7 @@ import path from "path";
 import { setTimeout } from "timers/promises";
 import { generateOrderTemplate } from "./utils/generators";
 import { wsClient } from "./init";
+
 // import { db } from "./utils/mysqlConnector";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env.ORDERS") });
@@ -318,7 +319,6 @@ async function execLoop(
                 ).then(() => {
                   currentOrderCount++;
                 });
-
                 logger.debug(JSON.stringify(order, null, 2));
                 let sideIdentifier =
                   side === idex.OrderSide.buy ? "BUY " : "SELL";
@@ -407,24 +407,27 @@ function validateOrderSide(
     side = idex.OrderSide.buy;
   }
 
-  let runMarket = true;
+  let runMarket = false;
+  const CHECK_POSITIONS = process.env.CHECK_POSITIONS === "true" ? true : false;
 
-  if (
-    openPositions.length !== 0 &&
-    Number(openPositions[0].quantity) > 0 &&
-    Math.abs(Number(openPositions[0].quantity)) >
-      Number(market.maximumPositionSize) / 2
-  ) {
-    side = idex.OrderSide.sell;
-    runMarket = false;
-  } else if (
-    openPositions.length !== 0 &&
-    Number(openPositions[0].quantity) < 0 &&
-    Math.abs(Number(openPositions[0].quantity)) <
-      Number(market.maximumPositionSize) / 2
-  ) {
-    side = idex.OrderSide.buy;
-    runMarket = false;
+  if (CHECK_POSITIONS) {
+    if (openPositions.length !== 0) {
+      const positionQuantity = Number(openPositions[0].quantity);
+
+      if (
+        positionQuantity > 0 &&
+        Math.abs(positionQuantity) <= Number(market.maximumPositionSize) / 2
+      ) {
+        runMarket = false;
+      } else if (
+        positionQuantity < 0 &&
+        Math.abs(positionQuantity) <= Number(market.maximumPositionSize) / 2
+      ) {
+        runMarket = false;
+      } else {
+        runMarket = true;
+      }
+    }
   }
 
   logger.info(
