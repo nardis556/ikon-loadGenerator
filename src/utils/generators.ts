@@ -3,58 +3,114 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 
-function randomDust(value: number, resolution: string) {
-  let decimalsToKeep = 0;
-  let percentageVariation = 0.000011111;
+/**
+ * PREVIOUS LOGIC
+ * PREVIOUS LOGIC
+ * PREVIOUS LOGIC
+ * NOT VIABLE FOR PRICES THAT ARE 1 DIGIT INTEGERS
+ */
+export function randomDustQuantity(value: number, resolution: string) {
+  const valueParts = String(value).split(".");
+  const valueInt = valueParts[0];
+  let valueDec = valueParts[1] || "0";
 
-  switch (resolution) {
-    case "0.00000001":
-      decimalsToKeep = 8;
-      break;
-    case "0.00000010":
-      decimalsToKeep = 7;
-      break;
-    case "0.00000100":
-      decimalsToKeep = 6;
-      break;
-    case "0.00001000":
-      decimalsToKeep = 5;
-      break;
-    case "0.00010000":
-      decimalsToKeep = 4;
-      break;
-    case "0.00100000":
-      decimalsToKeep = 3;
-      break;
-    case "0.01000000":
-      decimalsToKeep = 2;
-      break;
-    case "0.10000000":
-      decimalsToKeep = 1;
-      break;
-    case "1.00000000":
-      decimalsToKeep = 0;
-      break;
-    case "10.00000000":
-      percentageVariation = 0.0005;
-      break;
-    default:
-      throw new Error("Unsupported resolution format");
+  const stepSizeParts = resolution.split(".");
+  const stepDec = stepSizeParts[1] || "0";
+  const zeroCount = stepDec.length - stepDec.replace(/0+$/, "").length;
+
+  
+  if (resolution === "10.00000000") {
+    const decimalPlaces = resolution.split('.')[1].length;
+
+    let valueInt = Math.floor(value);
+    valueInt = valueInt - (valueInt % 10);
+
+    const zeros = '0'.repeat(decimalPlaces);
+
+    return `${valueInt}.${zeros}`;
   }
 
-  const maxVariation = value * percentageVariation;
 
-  const variation = Math.random() * (maxVariation * 2) - maxVariation;
+  if (zeroCount === 8) {
+    const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    const randInt = Math.floor(value) + Math.floor(Math.random() * magnitude);
+    const result = randInt.toFixed(8);
+    return result;
+  }
 
-  const randomizedValue = Math.max(0, value + variation);
+  if (zeroCount < 3) {
+    const decimalPlaces = resolution.split('.')[1].length;
+    const fixedDecimals = resolution.indexOf('1') - 2;
+    const randomizeDecimals = decimalPlaces - fixedDecimals;
 
-  const factor = Math.pow(10, decimalsToKeep);
-  const roundedValue = Math.floor(randomizedValue * factor) / factor;
+    const valueString = value.toFixed(decimalPlaces);
+    const fixedPart = valueString.substring(0, fixedDecimals + 2);
+    const randomPart = Math.floor(Math.random() * (10 ** randomizeDecimals)).toString().padStart(randomizeDecimals, '0');
 
-  const result = roundedValue.toFixed(Math.max(decimalsToKeep, 0));
+    return fixedPart + randomPart
+  }
 
-  return Number(Number(result).toFixed(Math.max(decimalsToKeep, 0))).toFixed(8);
+
+  const nonZeroDecimals = stepDec.length - zeroCount;
+
+  const maxRandom = 10 ** nonZeroDecimals;
+  let randomDec = Math.floor(Math.random() * maxRandom);
+
+  const randomDecStr = String(randomDec).padStart(nonZeroDecimals, "0");
+
+  const resultDec = randomDecStr + "0".repeat(zeroCount);
+  const result = parseFloat(valueInt + "." + resultDec);
+
+  return result.toFixed(stepDec.length);
 }
+
+/**
+ *
+ * @param value value to generate random dust for 1
+ * @param resolution resolution to generate dust for. e.g. "0.00000001" would be 8 decimals to randomize
+ * @returns random dust value
+ */
+export function randomDust(value: number, resolution: string) {
+  const valueParts = String(value).split(".");
+  const valueInt = valueParts[0];
+  let valueDec = valueParts[1] || "0";
+
+  const stepSizeParts = resolution.split(".");
+  const stepDec = stepSizeParts[1] || "0";
+  const zeroCount = stepDec.length - stepDec.replace(/0+$/, "").length;
+
+  if (resolution === "0.00000100") {
+    return Number(value.toFixed(6)).toFixed(8)
+  }
+
+  if (zeroCount === 8) {
+    const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    const randInt = Math.floor(value) + Math.floor(Math.random() * magnitude);
+    const result = randInt.toFixed(8);
+    return result;
+  }
+
+  const nonZeroDecimals = stepDec.length - zeroCount;
+  const maxRandom = 10 ** nonZeroDecimals;
+  let randomDec = Math.floor(Math.random() * maxRandom);
+  const randomDecStr = String(randomDec).padStart(nonZeroDecimals, "0");
+
+  let resultDec = randomDecStr + "0".repeat(zeroCount);
+
+  if (valueInt.length === 1 && nonZeroDecimals >= 3) {
+    const thirdDecimal = parseInt(valueDec[2] || "0");
+    let randomizedThird = Math.floor(Math.random() * (thirdDecimal + 1));
+    resultDec =
+      valueDec.substring(0, 2) +
+      randomizedThird.toString() +
+      "0".repeat(zeroCount + stepDec.length - 3);
+  }
+
+  const result = parseFloat(valueInt + "." + resultDec);
+
+  return result.toFixed(stepDec.length);
+}
+
 /**
  *
  * @param midPrice
@@ -147,7 +203,7 @@ function orderSelection(
       market: market,
       side: side,
       type: idex.OrderType.limit,
-      quantity: randomDust(quantity, quantityRes),
+      quantity: randomDustQuantity(quantity, quantityRes),
       price: randomDust(adjustedPrice, priceRes),
     };
   } else if (random < weights.limit + weights.market) {
@@ -155,14 +211,14 @@ function orderSelection(
       market: market,
       side: side === "sell" ? "buy" : "sell",
       type: idex.OrderType.market,
-      quantity: randomDust(
+      quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          Number(process.env.QUANTITY_ALPHA_FACTOR) *
-          (1 *
-            (1 +
-              Math.floor(
-                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-              ))),
+        Number(process.env.QUANTITY_ALPHA_FACTOR) *
+        (1 *
+          (1 +
+            Math.floor(
+              Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+            ))),
         quantityRes
       ),
     };
@@ -180,14 +236,14 @@ function orderSelection(
           Math.random() > 0.5
             ? idex.OrderType.stopLossMarket
             : idex.OrderType.takeProfitMarket,
-        quantity: randomDust(
+        quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            Number(process.env.QUANTITY_ALPHA_FACTOR) *
-            (1 *
-              (1 +
-                Math.floor(
-                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-                ))),
+          Number(process.env.QUANTITY_ALPHA_FACTOR) *
+          (1 *
+            (1 +
+              Math.floor(
+                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+              ))),
           quantityRes
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
@@ -202,7 +258,7 @@ function orderSelection(
           Math.random() > 0.5
             ? idex.OrderType.stopLossLimit
             : idex.OrderType.takeProfitLimit,
-        quantity: randomDust(quantity, quantityRes),
+        quantity: randomDustQuantity(quantity, quantityRes),
         price: randomDust(adjustedPrice, priceRes),
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
