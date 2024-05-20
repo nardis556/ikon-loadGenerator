@@ -3,6 +3,68 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 
+function randomDustQuantity(value: number, resolution: string) {
+  let decimalsToKeep = 0;
+  let percentageVariation = 10;
+  let minFactor = 5;
+
+  switch (resolution) {
+    case "0.00000001":
+      decimalsToKeep = 8;
+      break;
+    case "0.00000010":
+      decimalsToKeep = 7;
+      break;
+    case "0.00000100":
+      decimalsToKeep = 6;
+      break;
+    case "0.00001000":
+      decimalsToKeep = 5;
+      break;
+    case "0.00010000":
+      decimalsToKeep = 4;
+      break;
+    case "0.00100000":
+      decimalsToKeep = 3;
+      break;
+    case "0.01000000":
+      decimalsToKeep = 2;
+      break;
+    case "0.10000000":
+      decimalsToKeep = 1;
+      break;
+    case "1.00000000":
+      decimalsToKeep = 0;
+      break;
+    case "10.00000000":
+      decimalsToKeep = -1;
+      break;
+    default:
+      throw new Error("Unsupported resolution format");
+  }
+
+  const maxVariation = value * percentageVariation;
+
+  let randomizedValue: number, variation: number;
+  let attempts = 0;
+
+  do {
+    variation = Math.random() * (maxVariation * 2) - maxVariation;
+    randomizedValue = value * (minFactor + variation / value);
+
+    if (attempts++ > 10) {
+      break;
+    }
+  } while (randomizedValue < 0 || Math.abs(variation) > maxVariation);
+
+  const factor = Math.pow(10, decimalsToKeep);
+  const roundedValue = Math.floor(randomizedValue * factor) / factor;
+
+  const result = roundedValue.toFixed(Math.max(decimalsToKeep, 0));
+
+  return Number(result).toFixed(8);
+}
+
 function randomDust(value: number, resolution: string) {
   let decimalsToKeep = 0;
   let percentageVariation = 0.000011111;
@@ -57,18 +119,7 @@ function randomDust(value: number, resolution: string) {
 
   return Number(Number(result).toFixed(Math.max(decimalsToKeep, 0))).toFixed(8);
 }
-/**
- *
- * @param midPrice
- * @param quantity
- * @param quantityRes
- * @param priceRes
- * @param iterations
- * @param priceIncrement
- * @param market
- * @param side
- * @returns
- */
+
 export function generateOrderTemplate(
   midPrice: number,
   quantity: number,
@@ -149,7 +200,12 @@ function orderSelection(
       market: market,
       side: side,
       type: idex.OrderType.limit,
-      quantity: randomDust(quantity, quantityRes),
+      quantity: randomDustQuantity(
+        Number(takerOrderMinimum) *
+          Number(10) *
+          (1 * (1 + Math.floor(Math.random() * Number(10)))),
+        quantityRes
+      ),
       price: randomDust(adjustedPrice, priceRes),
     };
   } else if (random < weights.limit + weights.market) {
@@ -157,14 +213,10 @@ function orderSelection(
       market: market,
       side: side === "sell" ? "buy" : "sell",
       type: idex.OrderType.market,
-      quantity: randomDust(
+      quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          Number(process.env.QUANTITY_ALPHA_FACTOR) *
-          (1 *
-            (1 +
-              Math.floor(
-                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-              ))),
+          Number(10) *
+          (1 * (1 + Math.floor(Math.random() * Number(10)))),
         quantityRes
       ),
     };
@@ -182,14 +234,10 @@ function orderSelection(
           Math.random() > 0.5
             ? idex.OrderType.stopLossMarket
             : idex.OrderType.takeProfitMarket,
-        quantity: randomDust(
+        quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            Number(process.env.QUANTITY_ALPHA_FACTOR) *
-            (1 *
-              (1 +
-                Math.floor(
-                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-                ))),
+            Number(10) *
+            (1 * (1 + Math.floor(Math.random() * Number(10)))),
           quantityRes
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
@@ -204,7 +252,12 @@ function orderSelection(
           Math.random() > 0.5
             ? idex.OrderType.stopLossLimit
             : idex.OrderType.takeProfitLimit,
-        quantity: randomDust(quantity, quantityRes),
+        quantity: randomDustQuantity(
+          Number(takerOrderMinimum) *
+            Number(10) *
+            (1 * (1 + Math.floor(Math.random() * Number(10)))),
+          quantityRes
+        ),
         price: randomDust(adjustedPrice, priceRes),
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
@@ -213,17 +266,4 @@ function orderSelection(
     }
   }
   return order;
-}
-
-/**
- *
- * @param min
- * @param max
- * @returns
- */
-export function getRandomNumber(min: number, max: number) {
-  if (min > max) {
-    [min, max] = [max, min];
-  }
-  return Math.random() * (max - min) + min;
 }
