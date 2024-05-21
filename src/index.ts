@@ -468,7 +468,7 @@ function validateOrderSide(
 
   //
 
-  let runMarket = false;
+  let runMarket = true;
   const CHECK_POSITIONS = process.env.CHECK_POSITIONS === "true" ? true : false;
 
   if (CHECK_POSITIONS) {
