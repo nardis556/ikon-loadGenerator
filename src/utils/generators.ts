@@ -9,7 +9,7 @@ function randomDustQuantity(value: number, resolution: string, market: string) {
   let minFactor = 2;
   switch (market) {
     case "BTC-USD":
-      minFactor = 5;
+      minFactor = 6;
     case "ETH-USD":
       minFactor = 5;
     case "IDEX-USD":
