@@ -13,7 +13,7 @@ function randomDustQuantity(value: number, resolution: string, market: string) {
     case "ETH-USD":
       minFactor = 5;
     case "IDEX-USD":
-      minFactor = 4;
+      minFactor = 3;
       break;
     default:
       minFactor == minFactor;
