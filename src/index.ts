@@ -412,6 +412,7 @@ function validateOrderSide(
   } else if (orderBook.bids.length < 30) {
     side = idex.OrderSide.buy;
   }
+  //
 
   let runMarket = false;
   const CHECK_POSITIONS = process.env.CHECK_POSITIONS === "true" ? true : false;
