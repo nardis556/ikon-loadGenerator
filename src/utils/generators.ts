@@ -3,10 +3,13 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 
-function randomDustQuantity(value: number, resolution: string) {
+function randomDustQuantity(value: number, resolution: string, market: string) {
   let decimalsToKeep = 0;
   let percentageVariation = 10;
   let minFactor = 2;
+  market === "BTC-USD" ? (minFactor = 5) : minFactor == minFactor;
+  market === "ETH-USD" ? (minFactor = 5) : minFactor == minFactor;
+  market === "IDEX-USD" ? (minFactor = 5) : minFactor == minFactor;
 
   switch (resolution) {
     case "0.00000001":
@@ -208,7 +211,8 @@ function orderSelection(
               Math.floor(
                 Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
               ))),
-        quantityRes
+        quantityRes,
+        market
       ),
       price: randomDust(adjustedPrice, priceRes),
     };
@@ -225,7 +229,8 @@ function orderSelection(
               Math.floor(
                 Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
               ))),
-        quantityRes
+        quantityRes,
+        market
       ),
     };
   } else {
@@ -250,7 +255,8 @@ function orderSelection(
                 Math.floor(
                   Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
                 ))),
-          quantityRes
+          quantityRes,
+          market
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
@@ -272,7 +278,8 @@ function orderSelection(
                 Math.floor(
                   Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
                 ))),
-          quantityRes
+          quantityRes,
+          market
         ),
         price: randomDust(adjustedPrice, priceRes),
         triggerPrice: randomDust(triggerPrice, priceRes),
