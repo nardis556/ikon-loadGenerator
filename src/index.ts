@@ -452,11 +452,18 @@ function validateOrderSide(
     side = idex.OrderSide.sell;
   } else if (orderBook.bids.length === 0 && orderBook.asks.length > 50) {
     side = idex.OrderSide.buy;
-  }
-  if (orderBook.asks.length < 50 && orderBook.bids.length > 50) {
+  } else if (orderBook.asks.length < 50 && orderBook.bids.length > 50) {
     side = idex.OrderSide.sell;
   } else if (orderBook.bids.length < 50 && orderBook.asks.length > 50) {
     side = idex.OrderSide.buy;
+  } else if (orderBook.asks.length < 50) {
+    side = idex.OrderSide.sell;
+  } else if (orderBook.bids.length < 50) {
+    side = idex.OrderSide.buy;
+  } else if (orderBook.bids.length <= 50) {
+    side = idex.OrderSide.buy;
+  } else if (orderBook.asks.length <= 50) {
+    side = idex.OrderSide.sell;
   }
 
   //
