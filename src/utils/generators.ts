@@ -5,11 +5,19 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 
 function randomDustQuantity(value: number, resolution: string, market: string) {
   let decimalsToKeep = 0;
-  let percentageVariation = 10;
+  let percentageVariation = 20;
   let minFactor = 2;
-  market === "BTC-USD" ? (minFactor = 5) : minFactor == minFactor;
-  market === "ETH-USD" ? (minFactor = 5) : minFactor == minFactor;
-  market === "IDEX-USD" ? (minFactor = 5) : minFactor == minFactor;
+  switch (market) {
+    case "BTC-USD":
+      minFactor = 5;
+    case "ETH-USD":
+      minFactor = 5;
+    case "IDEX-USD":
+      minFactor = 4;
+      break;
+    default:
+      minFactor == minFactor;
+  }
 
   switch (resolution) {
     case "0.00000001":
