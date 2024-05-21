@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 function randomDustQuantity(value: number, resolution: string) {
   let decimalsToKeep = 0;
   let percentageVariation = 10;
-  let minFactor = 5;
+  let minFactor = 2;
 
   switch (resolution) {
     case "0.00000001":
@@ -67,7 +67,7 @@ function randomDustQuantity(value: number, resolution: string) {
 
 function randomDust(value: number, resolution: string) {
   let decimalsToKeep = 0;
-  let percentageVariation = 0.00011111;
+  let percentageVariation = 0.000011111;
 
   switch (resolution) {
     case "0.00000001":
@@ -96,10 +96,10 @@ function randomDust(value: number, resolution: string) {
       break;
     case "1.00000000":
       decimalsToKeep = 0;
-      // percentageVariation = 0.0005;
+      percentageVariation = 0.0005;
       break;
     case "10.00000000":
-      // percentageVariation = 0.0005;
+      percentageVariation = 0.0005;
       decimalsToKeep = -1;
       break;
     default:
@@ -202,8 +202,12 @@ function orderSelection(
       type: idex.OrderType.limit,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          Number(10) *
-          (1 * (1 + Math.floor(Math.random() * Number(10)))),
+          Number(process.env.QUANTITY_ALPHA_FACTOR) *
+          (1 *
+            (1 +
+              Math.floor(
+                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+              ))),
         quantityRes
       ),
       price: randomDust(adjustedPrice, priceRes),
@@ -215,8 +219,12 @@ function orderSelection(
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          Number(10) *
-          (1 * (1 + Math.floor(Math.random() * Number(10)))),
+          Number(process.env.QUANTITY_ALPHA_FACTOR) *
+          (1 *
+            (1 +
+              Math.floor(
+                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+              ))),
         quantityRes
       ),
     };
@@ -236,8 +244,12 @@ function orderSelection(
             : idex.OrderType.takeProfitMarket,
         quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            Number(10) *
-            (1 * (1 + Math.floor(Math.random() * Number(10)))),
+            Number(process.env.QUANTITY_ALPHA_FACTOR) *
+            (1 *
+              (1 +
+                Math.floor(
+                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                ))),
           quantityRes
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
@@ -254,8 +266,12 @@ function orderSelection(
             : idex.OrderType.takeProfitLimit,
         quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            Number(10) *
-            (1 * (1 + Math.floor(Math.random() * Number(10)))),
+            Number(process.env.QUANTITY_ALPHA_FACTOR) *
+            (1 *
+              (1 +
+                Math.floor(
+                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                ))),
           quantityRes
         ),
         price: randomDust(adjustedPrice, priceRes),
