@@ -407,9 +407,9 @@ function validateOrderSide(
     side = idex.OrderSide.buy;
   }
 
-  if (orderBook.asks.length < 20) {
+  if (orderBook.asks.length < 30) {
     side = idex.OrderSide.sell;
-  } else if (orderBook.bids.length < 20) {
+  } else if (orderBook.bids.length < 30) {
     side = idex.OrderSide.buy;
   }
 
