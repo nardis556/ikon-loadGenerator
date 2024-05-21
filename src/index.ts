@@ -239,8 +239,8 @@ async function execLoop(
             market.indexPrice = orderBook.indexPrice;
 
             market.bestPrice = calculateBestPrice(
-              orderBook.asks[0][0] || null,
-              orderBook.bids[0][0] || null,
+              orderBook.asks[0][0] ? orderBook.asks[0][0] : 0,
+              orderBook.bids[0][0] ? orderBook.bids[0][0] : 0,
               market.indexPrice
             );
             // console.log(
