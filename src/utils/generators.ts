@@ -231,11 +231,11 @@ function orderSelection(
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          Number(process.env.QUANTITY_ALPHA_FACTOR) *
+          (Number(process.env.QUANTITY_ALPHA_FACTOR) / 2) *
           (1 *
             (1 +
               Math.floor(
-                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 2)
               ))),
         quantityRes,
         market
@@ -257,11 +257,11 @@ function orderSelection(
             : idex.OrderType.takeProfitMarket,
         quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            Number(process.env.QUANTITY_ALPHA_FACTOR) *
+            (Number(process.env.QUANTITY_ALPHA_FACTOR) / 2) *
             (1 *
               (1 +
                 Math.floor(
-                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
+                  Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 2)
                 ))),
           quantityRes,
           market
