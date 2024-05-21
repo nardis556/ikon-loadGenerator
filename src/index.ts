@@ -393,7 +393,7 @@ main().catch((error) => {
 
 function validateOrderSide(
   calculateWeight: (orders: any) => any,
-  orderBook: any,
+  orderBook: idex.RestResponseGetOrderBookLevel2,
   side: string,
   openPositions: any,
   market: ExtendedIDEXMarket
@@ -404,6 +404,12 @@ function validateOrderSide(
   if (bidsWeight > (bidsWeight + asksWeight) / 2) {
     side = idex.OrderSide.sell;
   } else {
+    side = idex.OrderSide.buy;
+  }
+
+  if (orderBook.asks.length < 20) {
+    side = idex.OrderSide.sell;
+  } else if (orderBook.bids.length < 20) {
     side = idex.OrderSide.buy;
   }
 
