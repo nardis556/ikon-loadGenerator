@@ -239,8 +239,8 @@ async function execLoop(
             market.indexPrice = orderBook.indexPrice;
 
             market.bestPrice = calculateBestPrice(
-              orderBook.asks[0][0],
-              orderBook.bids[0][0],
+              orderBook.asks[0][0] || null,
+              orderBook.bids[0][0] || null,
               market.indexPrice
             );
             // console.log(
@@ -400,8 +400,8 @@ main().catch((error) => {
 });
 
 function calculateBestPrice(bestAsk: any, bestBid: any, indexPrice: string) {
-  const parsedBestBid = Number(bestBid) || 0;
-  const parsedBestAsk = Number(bestAsk) || 0;
+  const parsedBestBid = Number(bestBid) > 0 ? Number(bestBid) : 0;
+  const parsedBestAsk = Number(bestAsk) > 0 ? Number(bestAsk) : 0;
   const parsedIndexPrice = Number(indexPrice);
 
   const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
