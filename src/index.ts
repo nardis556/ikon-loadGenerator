@@ -198,7 +198,7 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
     retry(() =>
       client.RestPublicClient.getOrderBookLevel2({
         market: marketID,
-        limit: 200,
+        limit: 500,
       })
     ),
   ]);
@@ -215,8 +215,8 @@ async function execLoop(
     (m) => `${m.baseAsset}-${m.quoteAsset}`
   );
 
-  const handler = new WebSocketHandler(marketsSubscription, markets);
-  await handler.initWebSocket();
+  // const handler = new WebSocketHandler(marketsSubscription, markets);
+  // await handler.initWebSocket();
 
   while (true) {
     try {
@@ -228,10 +228,26 @@ async function execLoop(
           let totalOrdersCount: number;
           let currentOrderCount: number = 0;
           try {
-            const [openPositions, openOrders, orderBook] = await fetchData(
+            let openPositions: idex.RestResponseGetPositions;
+            let openOrders: idex.RestResponseGetOrders;
+            let orderBook: idex.RestResponseGetOrderBookLevel2;
+            [openPositions, openOrders, orderBook] = await fetchData(
               client,
               marketID
             );
+
+            market.indexPrice = orderBook.indexPrice;
+
+            market.bestPrice = calculateBestPrice(
+              orderBook.asks[0][0],
+              orderBook.bids[0][0],
+              market.indexPrice
+            );
+            // console.log(
+            //   orderBook.asks[0][0],
+            //   orderBook.bids[0][0],
+            //   market.indexPrice
+            // );
 
             totalOrdersCount = +openOrders.length;
             if (
@@ -247,17 +263,9 @@ async function execLoop(
               ));
             }
 
-            const calculateWeight = (orders: any) =>
-              orders.reduce(
-                (acc: any, [price, quantity]) =>
-                  acc + Number(price) * Number(quantity),
-                0
-              );
-
             let runMarket: boolean = true;
             // @ts-ignore
             ({ runMarket, side } = validateOrderSide(
-              calculateWeight,
               orderBook,
               side,
               openPositions,
@@ -391,13 +399,46 @@ main().catch((error) => {
   logger.error("Error during main function:", error);
 });
 
+function calculateBestPrice(bestAsk: any, bestBid: any, indexPrice: string) {
+  const parsedBestBid = Number(bestBid) || 0;
+  const parsedBestAsk = Number(bestAsk) || 0;
+  const parsedIndexPrice = Number(indexPrice);
+
+  const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
+  const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
+  const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
+
+  if (parsedBestBid === 0 && parsedBestAsk === 0) {
+    return parsedIndexPrice.toFixed(8);
+  }
+
+  let totalWeight = indexWeight;
+  let totalValue = indexWeight * parsedIndexPrice;
+
+  if (parsedBestBid > 0) {
+    totalWeight += bidWeight;
+    totalValue += bidWeight * parsedBestBid;
+  }
+
+  if (parsedBestAsk > 0) {
+    totalWeight += askWeight;
+    totalValue += askWeight * parsedBestAsk;
+  }
+
+  return (totalValue / totalWeight).toFixed(8);
+}
+
 function validateOrderSide(
-  calculateWeight: (orders: any) => any,
   orderBook: idex.RestResponseGetOrderBookLevel2,
   side: string,
   openPositions: any,
   market: ExtendedIDEXMarket
 ) {
+  const calculateWeight = (orders: any) =>
+    orders.reduce(
+      (acc: any, [price, quantity]) => acc + Number(price) * Number(quantity),
+      0
+    );
   const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
   const asksWeight = calculateWeight(orderBook.asks) * 1.05;
 
@@ -407,9 +448,9 @@ function validateOrderSide(
     side = idex.OrderSide.buy;
   }
 
-  if (orderBook.asks.length < 30) {
+  if (orderBook.asks.length < 50) {
     side = idex.OrderSide.sell;
-  } else if (orderBook.bids.length < 30) {
+  } else if (orderBook.bids.length < 50) {
     side = idex.OrderSide.buy;
   }
   //
@@ -442,8 +483,8 @@ function validateOrderSide(
   logger.info(
     `${
       side === "buy"
-        ? `placing BUY  orders at ${market.bestPrice}. IP: ${market.wsIndexPrice}`
-        : `placing SELL orders ${market.bestPrice} IP: ${market.wsIndexPrice}`
+        ? `placing BUY  orders at ${market.bestPrice}. IP: ${market.indexPrice}`
+        : `placing SELL orders ${market.bestPrice} IP: ${market.indexPrice}`
     }`
   );
   return { runMarket, side };
