@@ -67,7 +67,7 @@ function randomDustQuantity(value: number, resolution: string) {
 
 function randomDust(value: number, resolution: string) {
   let decimalsToKeep = 0;
-  let percentageVariation = 0.000011111;
+  let percentageVariation = 0.00011111;
 
   switch (resolution) {
     case "0.00000001":
@@ -96,10 +96,10 @@ function randomDust(value: number, resolution: string) {
       break;
     case "1.00000000":
       decimalsToKeep = 0;
-      percentageVariation = 0.0005;
+      // percentageVariation = 0.0005;
       break;
     case "10.00000000":
-      percentageVariation = 0.0005;
+      // percentageVariation = 0.0005;
       decimalsToKeep = -1;
       break;
     default:
