@@ -198,7 +198,7 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
     retry(() =>
       client.RestPublicClient.getOrderBookLevel2({
         market: marketID,
-        limit: 500,
+        limit: 1000,
       })
     ),
   ]);
@@ -448,9 +448,9 @@ function validateOrderSide(
     side = idex.OrderSide.buy;
   }
 
-  if (orderBook.asks.length < 50) {
+  if (orderBook.asks.length < 75) {
     side = idex.OrderSide.sell;
-  } else if (orderBook.bids.length < 50) {
+  } else if (orderBook.bids.length < 75) {
     side = idex.OrderSide.buy;
   } else if (orderBook.asks.length === 0) {
     side = idex.OrderSide.sell;
