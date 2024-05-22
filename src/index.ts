@@ -460,7 +460,9 @@ function validateOrderSide(
     side = idex.OrderSide.sell;
   } else if (orderBook.bids.length < 50) {
     side = idex.OrderSide.buy;
-  } else if (orderBook.bids.length <= 50) {
+  }
+
+  if (orderBook.bids.length <= 50) {
     side = idex.OrderSide.buy;
   } else if (orderBook.asks.length <= 50) {
     side = idex.OrderSide.sell;
