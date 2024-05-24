@@ -9,10 +9,12 @@ function randomDustQuantity(value: number, resolution: string, market: string) {
   let minFactor = 2;
   switch (market) {
     case "BTC-USD":
-      minFactor = 6;
+      minFactor = 8;
     case "ETH-USD":
-      minFactor = 5;
+      minFactor = 7;
     case "IDEX-USD":
+      minFactor = 6;
+    case "SOL-USD":
       minFactor = 3;
       break;
     default:
@@ -205,6 +207,7 @@ function orderSelection(
   priceRes: string,
   takerOrderMinimum: number
 ) {
+  const preferredMarkets = ["IDEX-USD", "BTC-USD", "ETH-USD", "SOL-USD"];
   let order: any;
   if (random < weights.limit) {
     order = {
@@ -224,7 +227,10 @@ function orderSelection(
       ),
       price: randomDust(adjustedPrice, priceRes),
     };
-  } else if (random < weights.limit + weights.market) {
+  } else if (
+    random < weights.limit + weights.market &&
+    preferredMarkets.includes(market)
+  ) {
     order = {
       market: market,
       side: side === "sell" ? "buy" : "sell",
