@@ -509,8 +509,8 @@ function validateOrderSide(
   logger.info(
     `${
       side === "buy"
-        ? `Placing BUY orders at ${market.indexPrice}, Average Ask Price: ${asksCalculation.averagePrice}`
-        : `Placing SELL orders at ${market.indexPrice}, Average Bid Price: ${bidsCalculation.averagePrice}`
+        ? `BUY  orders at ${market.indexPrice}, IP: ${indexPrice}`
+        : `SELL orders at ${market.indexPrice}, IP: ${indexPrice}`
     }`
   );
   return { runMarket, side };
