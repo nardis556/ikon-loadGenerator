@@ -79,7 +79,7 @@ export const fetchMarkets = async (): Promise<ExtendedIDEXMarket[]> => {
       (market) => `${market.baseAsset}-${market.quoteAsset}`
     );
     logger.info(`Fetched ${marketSymbols.join(", ")} markets.`);
-    logger.debug(JSON.stringify(filteredMarkets, null, 2));
+    // logger.debug(JSON.stringify(filteredMarkets, null, 2));
     return filteredMarkets;
   } catch (e) {
     logger.error(

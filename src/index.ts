@@ -211,9 +211,9 @@ async function execLoop(
   let markets: ExtendedIDEXMarket[] = [];
   let side: idex.OrderSide = initSide;
   markets = await fetchMarkets();
-  const marketsSubscription = markets.map(
-    (m) => `${m.baseAsset}-${m.quoteAsset}`
-  );
+  // const marketsSubscription = markets.map(
+  //   (m) => `${m.baseAsset}-${m.quoteAsset}`
+  // );
 
   // const handler = new WebSocketHandler(marketsSubscription, markets);
   // await handler.initWebSocket();
@@ -238,17 +238,6 @@ async function execLoop(
 
             market.indexPrice = orderBook.indexPrice;
 
-            market.bestPrice = calculateBestPrice(
-              orderBook.asks.length > 0 ? orderBook.asks[0][0] : 0,
-              orderBook.bids.length > 0 ? orderBook.bids[0][0] : 0,
-              market.indexPrice
-            );
-            // console.log(
-            //   orderBook.asks[0][0],
-            //   orderBook.bids[0][0],
-            //   market.indexPrice
-            // );
-
             totalOrdersCount = +openOrders.length;
             if (
               totalOrdersCount >= Number(process.env.OPEN_ORDERS) &&
@@ -272,16 +261,10 @@ async function execLoop(
               market
             ));
 
-            const quantity =
-              Number(market.makerOrderMinimum) *
-              Number(process.env.QUANTITY_ALPHA_FACTOR) *
-              (1 +
-                Math.floor(
-                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-                ));
+            const quantity = Number(market.makerOrderMinimum);
 
             const orderParams = generateOrderTemplate(
-              Number(market.bestPrice),
+              Number(market.indexPrice),
               quantity,
               Number(market.takerOrderMinimum),
               market.quantityRes,
@@ -293,7 +276,7 @@ async function execLoop(
             );
 
             const orderStartTime = Date.now();
-
+            logger.debug(JSON.stringify(orderParams, null, 2));
             for (const orderParam of orderParams) {
               if (
                 !runMarket &&
@@ -318,7 +301,7 @@ async function execLoop(
                 break;
               } else {
                 totalOrdersCount++;
-                logger.debug(JSON.stringify(orderParam, null, 2));
+                // logger.debug(JSON.stringify(orderParam, null, 2));
                 const order = await CreateOrder(
                   client,
                   orderParam,
@@ -327,7 +310,6 @@ async function execLoop(
                 ).then(() => {
                   currentOrderCount++;
                 });
-                logger.debug(JSON.stringify(order, null, 2));
                 let sideIdentifier =
                   side === idex.OrderSide.buy ? "BUY " : "SELL";
 
@@ -434,13 +416,38 @@ function validateOrderSide(
   openPositions: any,
   market: ExtendedIDEXMarket
 ) {
-  const calculateWeight = (orders: any) =>
-    orders.reduce(
-      (acc: any, [price, quantity]) => acc + Number(price) * Number(quantity),
-      0
-    );
-  const bidsWeight = calculateWeight(orderBook.bids) * 0.95;
-  const asksWeight = calculateWeight(orderBook.asks) * 1.05;
+  const indexPrice = Number(market.indexPrice);
+
+  const weightFactorToIncludeInSideCalculation = 0.0555;
+  const weightFactorToIncludeInTotalValueCalculation = 0.00777;
+
+  const bidsCalculation = calculateMarketMetrics(
+    orderBook.bids,
+    indexPrice,
+    weightFactorToIncludeInSideCalculation,
+    "weight"
+  );
+  const asksCalculation = calculateMarketMetrics(
+    orderBook.asks,
+    indexPrice,
+    weightFactorToIncludeInSideCalculation,
+    "weight"
+  );
+  const totalBidsValue = calculateMarketMetrics(
+    orderBook.bids,
+    indexPrice,
+    weightFactorToIncludeInTotalValueCalculation,
+    "totalValue"
+  ).totalValue;
+  const totalAsksValue = calculateMarketMetrics(
+    orderBook.asks,
+    indexPrice,
+    weightFactorToIncludeInTotalValueCalculation,
+    "totalValue"
+  ).totalValue;
+
+  const bidsWeight = bidsCalculation.weight * 0.95;
+  const asksWeight = asksCalculation.weight * 1.05;
 
   if (bidsWeight > (bidsWeight + asksWeight) / 2) {
     side = idex.OrderSide.sell;
@@ -448,27 +455,17 @@ function validateOrderSide(
     side = idex.OrderSide.buy;
   }
 
-  if (orderBook.asks.length === 0 && orderBook.bids.length > 50) {
+  logger.debug(
+    `Bids Weight: ${bidsWeight}, Asks Weight: ${asksWeight}, Index Price: ${indexPrice}`
+  );
+  if (bidsCalculation.averagePrice > indexPrice) {
     side = idex.OrderSide.sell;
-  } else if (orderBook.bids.length === 0 && orderBook.asks.length > 50) {
-    side = idex.OrderSide.buy;
-  } else if (orderBook.asks.length < 50 && orderBook.bids.length > 50) {
-    side = idex.OrderSide.sell;
-  } else if (orderBook.bids.length < 50 && orderBook.asks.length > 50) {
-    side = idex.OrderSide.buy;
-  } else if (orderBook.asks.length < 50) {
-    side = idex.OrderSide.sell;
-  } else if (orderBook.bids.length < 50) {
+  } else if (asksCalculation.averagePrice < indexPrice) {
     side = idex.OrderSide.buy;
   }
-
-  if (orderBook.bids.length <= 50) {
-    side = idex.OrderSide.buy;
-  } else if (orderBook.asks.length <= 50) {
-    side = idex.OrderSide.sell;
-  }
-
-  //
+  logger.debug(
+    `Average Bid Price: ${bidsCalculation.averagePrice}, Average Ask Price: ${asksCalculation.averagePrice} within ${weightFactorToIncludeInSideCalculation} of index price ${indexPrice}`
+  );
 
   let runMarket = true;
   const CHECK_POSITIONS = process.env.CHECK_POSITIONS === "true" ? true : false;
@@ -495,14 +492,61 @@ function validateOrderSide(
     }
   }
 
+  if (side === idex.OrderSide.sell && totalBidsValue < 10000) {
+    runMarket = false;
+  } else if (side === idex.OrderSide.buy && totalAsksValue < 10000) {
+    runMarket = false;
+  }
+
+  if (orderBook.asks.length < 20 || orderBook.bids.length < 20) {
+    if (orderBook.asks.length < 20) {
+      side = idex.OrderSide.sell;
+    } else if (orderBook.bids.length < 20) {
+      side = idex.OrderSide.buy;
+    }
+  }
+
   logger.info(
     `${
       side === "buy"
-        ? `placing BUY  orders at ${market.bestPrice}. IP: ${market.indexPrice}`
-        : `placing SELL orders ${market.bestPrice} IP: ${market.indexPrice}`
+        ? `Placing BUY orders at ${market.indexPrice}, Average Ask Price: ${asksCalculation.averagePrice}`
+        : `Placing SELL orders at ${market.indexPrice}, Average Bid Price: ${bidsCalculation.averagePrice}`
     }`
   );
   return { runMarket, side };
+}
+
+function calculateMarketMetrics(
+  orders: any,
+  indexPrice: number,
+  weightFactor: number,
+  mode: "weight" | "totalValue"
+) {
+  const filteredOrders = orders.filter(
+    ([price, _]: [string, string]) =>
+      Math.abs(Number(price) - indexPrice) / indexPrice <= weightFactor
+  );
+
+  if (mode === "weight") {
+    const totalWeight = filteredOrders.reduce(
+      (acc: any, [price, quantity]) => {
+        acc.total += Number(price) * Number(quantity);
+        acc.quantity += Number(quantity);
+        return acc;
+      },
+      { total: 0, quantity: 0 }
+    );
+    const averagePrice =
+      totalWeight.quantity > 0 ? totalWeight.total / totalWeight.quantity : 0;
+    return { weight: totalWeight.total, averagePrice };
+  } else {
+    // mode === 'totalValue'
+    const totalValue = filteredOrders.reduce(
+      (acc: any, [price, quantity]) => acc + Number(price) * Number(quantity),
+      0
+    );
+    return { totalValue };
+  }
 }
 
 async function CancelOrder(

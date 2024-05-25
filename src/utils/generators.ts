@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 function randomDustQuantity(value: number, resolution: string, market: string) {
   let decimalsToKeep = 0;
   let percentageVariation = 20;
-  let minFactor = 2;
+  let minFactor = 1;
   switch (market) {
     case "BTC-USD":
       minFactor = 8;
@@ -233,7 +233,7 @@ function orderSelection(
   ) {
     order = {
       market: market,
-      side: side === "sell" ? "buy" : "sell",
+      side: side,
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
@@ -256,7 +256,7 @@ function orderSelection(
     if (random < weights.limit + weights.market + weights.stopMarket) {
       order = {
         market: market,
-        side: side === "sell" ? "buy" : "sell",
+        side: side,
         type:
           Math.random() > 0.5
             ? idex.OrderType.stopLossMarket
