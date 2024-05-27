@@ -3,10 +3,26 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 
-function randomDustQuantity(value: number, resolution: string, market: string) {
+function randomDustQuantity(
+  values: number,
+  resolution: string,
+  market: string,
+  type
+) {
   let decimalsToKeep = 0;
   let percentageVariation = 20;
   let minFactor = 1;
+  let value = values;
+  switch (type) {
+    case "limit":
+      value * 1.33333333;
+      break;
+    case "market":
+      value = values;
+      break;
+    default:
+      throw new Error("Unsupported order type");
+  }
   switch (market) {
     case "BTC-USD":
       minFactor = 8;
@@ -65,9 +81,6 @@ function randomDustQuantity(value: number, resolution: string, market: string) {
     variation = Math.random() * (maxVariation * 2) - maxVariation;
     randomizedValue = value * (minFactor + variation / value);
 
-    if (attempts++ > 10) {
-      break;
-    }
   } while (randomizedValue < 0 || Math.abs(variation) > maxVariation);
 
   const factor = Math.pow(10, decimalsToKeep);
@@ -207,7 +220,6 @@ function orderSelection(
   priceRes: string,
   takerOrderMinimum: number
 ) {
-  const preferredMarkets = ["IDEX-USD", "BTC-USD", "ETH-USD", "SOL-USD"];
   let order: any;
   if (random < weights.limit) {
     order = {
@@ -223,14 +235,12 @@ function orderSelection(
                 Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
               ))),
         quantityRes,
-        market
+        market,
+        "limit"
       ),
       price: randomDust(adjustedPrice, priceRes),
     };
-  } else if (
-    random < weights.limit + weights.market &&
-    preferredMarkets.includes(market)
-  ) {
+  } else if (random < weights.limit + weights.market) {
     order = {
       market: market,
       side: side,
@@ -244,7 +254,8 @@ function orderSelection(
                 Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 2)
               ))),
         quantityRes,
-        market
+        market,
+        "market"
       ),
     };
   } else {
@@ -270,7 +281,8 @@ function orderSelection(
                   Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 2)
                 ))),
           quantityRes,
-          market
+          market,
+          "market"
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
@@ -293,7 +305,8 @@ function orderSelection(
                   Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
                 ))),
           quantityRes,
-          market
+          market,
+          "limit"
         ),
         price: randomDust(adjustedPrice, priceRes),
         triggerPrice: randomDust(triggerPrice, priceRes),
