@@ -418,8 +418,8 @@ function validateOrderSide(
 ) {
   const indexPrice = Number(market.indexPrice);
 
-  const weightFactorToIncludeInSideCalculation = 0.0555;
-  const weightFactorToIncludeInTotalValueCalculation = 0.00777;
+  const weightFactorToIncludeInSideCalculation = 0.0222;
+  const weightFactorToIncludeInTotalValueCalculation = 0.00444;
 
   const bidsCalculation = calculateMarketMetrics(
     orderBook.bids,
