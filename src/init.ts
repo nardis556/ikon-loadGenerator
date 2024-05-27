@@ -118,58 +118,102 @@ export async function initializeAccounts(
   accounts: Record<string, AccountInfo>,
   clients: { [key: string]: IClient }
 ) {
-  let client: IClient;
+  const clientPromises: Promise<IClient>[] = [];
+  const associatePromises: Promise<void>[] = [];
+
   for (const [accountKey, accountInfo] of Object.entries(accounts)) {
-    try {
-      client = await clientBuilder(
-        accountInfo.apiKey,
-        accountInfo.apiSecret,
-        accountInfo.privateKey
-      );
-      await retry(() =>
+    const clientPromise = clientBuilder(
+      accountInfo.apiKey,
+      accountInfo.apiSecret,
+      accountInfo.privateKey
+    ).catch((e) => {
+      logger.error(`Failed to build client for ${accountKey}: ${e.message}`);
+      return null;
+    });
+
+    clientPromises.push(clientPromise);
+  }
+
+  const builtClients = await Promise.all(clientPromises);
+
+  builtClients.forEach((client, index) => {
+    if (client) {
+      const accountKey = Object.keys(accounts)[index];
+      const associatePromise = retry(() =>
         client.RestAuthenticatedClient.associateWallet({
           wallet: client.getWalletAndNonce.wallet,
           nonce: client.getWalletAndNonce.nonce,
         })
+      )
+        .then(() => {
+          clients[accountKey] = client;
+          logger.info(
+            `Wallet successfully associated for ${accountKey} with wallet ${client.getWalletAndNonce.wallet}`
+          );
+        })
+        .catch((e) => {
+          logger.error(
+            `Failed to associate wallet for ${accountKey}: ${e.message}`
+          );
+        });
+
+      associatePromises.push(associatePromise);
+    } else {
+      logger.error(
+        `Client creation failed for account ${
+          Object.keys(accounts)[index]
+        }, skipping wallet association.`
       );
-      clients[accountKey] = client;
-      logger.info(
-        `Wallet successfully associated for ${accountKey} with wallet ${client.getWalletAndNonce.wallet}`
-      );
-    } catch (e) {
-      logger.error(`
-      Failed to associate wallet for ${accountKey}: ${e.message}`);
     }
-  }
+  });
+
+  await Promise.all(associatePromises);
 }
 
 export async function initializeCancels(
   accounts: Record<string, AccountInfo>,
   clients: { [key: string]: IClient }
 ) {
-  let client: IClient;
+  const cancelPromises: Promise<void>[] = [];
+  const clientBuilders: Promise<IClient>[] = [];
+
   for (const [accountKey, accountInfo] of Object.entries(accounts)) {
-    try {
-      client = await clientBuilder(
-        accountInfo.apiKey,
-        accountInfo.apiSecret,
-        accountInfo.privateKey
-      );
-      await retry(() =>
-        client.RestAuthenticatedClient.cancelOrders({
-          wallet: client.getWalletAndNonce.wallet,
-          nonce: client.getWalletAndNonce.nonce,
-        })
-      );
-      clients[accountKey] = client;
-      logger.info(
-        `Orders for ${accountKey} successfully cancelled orders for wallet ${client.getWalletAndNonce.wallet}`
-      );
-    } catch (e) {
-      logger.error(`
-      Failed to cancel orders for wallet ${client.getWalletAndNonce.wallet} for ${accountKey}: ${e.message}`);
-    }
+    const clientPromise = clientBuilder(
+      accountInfo.apiKey,
+      accountInfo.apiSecret,
+      accountInfo.privateKey
+    );
+    clientBuilders.push(clientPromise);
+
+    clientPromise
+      .then((client) => {
+        clients[accountKey] = client;
+        const cancelPromise = retry(() =>
+          client.RestAuthenticatedClient.cancelOrders({
+            wallet: client.getWalletAndNonce.wallet,
+            nonce: client.getWalletAndNonce.nonce,
+          })
+        )
+          .then(() => {
+            logger.info(
+              `Successfully cancelled orders for ${accountKey} wallet ${client.getWalletAndNonce.wallet}`
+            );
+          })
+          .catch((e) => {
+            logger.error(
+              `Failed to cancel orders for ${accountKey} wallet ${client.getWalletAndNonce.wallet}: ${e.message}`
+            );
+          });
+        cancelPromises.push(cancelPromise);
+      })
+      .catch((e) => {
+        logger.error(`Failed to build client for ${accountKey}: ${e.message}`);
+      });
   }
+
+  await Promise.all(clientBuilders);
+
+  await Promise.all(cancelPromises);
 }
 
 export const initClient = async (): Promise<IClient> => {
