@@ -347,14 +347,14 @@ function validateOrderSide(
     runMarket = false;
   }
 
-  if (orderBook.asks.length < 100 || orderBook.bids.length < 100) {
+  if (orderBook.asks.length < 55 || orderBook.bids.length < 55) {
     if (
-      orderBook.asks.length < 100 &&
+      orderBook.asks.length < 55 &&
       orderBook.asks.length < orderBook.bids.length
     ) {
       side = idex.OrderSide.sell;
     } else if (
-      orderBook.bids.length < 100 &&
+      orderBook.bids.length < 55 &&
       orderBook.bids.length < orderBook.asks.length
     ) {
       side = idex.OrderSide.buy;
