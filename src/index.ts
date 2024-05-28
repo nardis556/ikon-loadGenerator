@@ -389,8 +389,8 @@ function validateOrderSide(
           : `SELL orders at ${market.indexPrice}, IP: ${indexPrice}`
       }`
     );
-    return { runMarket, side };
   }
+  return { runMarket, side };
 }
 
 function calculateMarketMetrics(
