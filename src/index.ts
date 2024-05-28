@@ -348,14 +348,14 @@ function validateOrderSide(
     runMarket = false;
   }
 
-  if (orderBook.asks.length < 100 || orderBook.bids.length < 100) {
+  if (orderBook.asks.length < 20 || orderBook.bids.length < 20) {
     if (
-      orderBook.asks.length < 100 &&
+      orderBook.asks.length < 20 &&
       orderBook.asks.length < orderBook.bids.length
     ) {
       side = idex.OrderSide.sell;
     } else if (
-      orderBook.bids.length < 100 &&
+      orderBook.bids.length < 20 &&
       orderBook.bids.length < orderBook.asks.length
     ) {
       side = idex.OrderSide.buy;
@@ -372,14 +372,25 @@ function validateOrderSide(
         : idex.OrderSide.buy;
   }
 
-  logger.info(
-    `${
-      side === "buy"
-        ? `BUY  orders at ${market.indexPrice}, IP: ${indexPrice}`
-        : `SELL orders at ${market.indexPrice}, IP: ${indexPrice}`
-    }`
-  );
-  return { runMarket, side };
+  const bestBid =
+    orderBook.bids.length > 0 ? Number(orderBook.bids[0][0]) : null;
+  const bestAsk =
+    orderBook.asks.length > 0 ? Number(orderBook.asks[0][0]) : null;
+
+  if (bestAsk && bestAsk > indexPrice * (1 + maxPriceDeviation)) {
+    side = idex.OrderSide.sell;
+  } else if (bestBid && bestBid < indexPrice * (1 - maxPriceDeviation)) {
+    side = idex.OrderSide.buy;
+
+    logger.info(
+      `${
+        side === "buy"
+          ? `BUY  orders at ${market.indexPrice}, IP: ${indexPrice}`
+          : `SELL orders at ${market.indexPrice}, IP: ${indexPrice}`
+      }`
+    );
+    return { runMarket, side };
+  }
 }
 
 function calculateMarketMetrics(
