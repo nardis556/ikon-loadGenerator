@@ -157,7 +157,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 side: "buy",
                 price: buyPrice,
                 quantity: adjustValueToResolution(
-                  parseFloat(market.makerOrderMinimum) * 10,
+                  parseFloat(market.makerOrderMinimum) * 50,
                   quantityResolution
                 ),
               };
@@ -170,7 +170,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 side: "sell",
                 price: sellPrice,
                 quantity: adjustValueToResolution(
-                  parseFloat(market.makerOrderMinimum) * 10,
+                  parseFloat(market.makerOrderMinimum) * 50,
                   quantityResolution
                 ),
               };
