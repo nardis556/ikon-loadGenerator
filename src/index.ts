@@ -173,6 +173,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                 });
+                break;
               }
 
               const sellParams = {
@@ -193,6 +194,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
                 });
+                break;
               }
 
               await sleep(500);
@@ -207,10 +209,9 @@ async function execLoop(clients: { [key: string]: IClient }) {
               try {
                 await client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
-                  market: marketID,
                 });
                 logger.info(
-                  `Cancelled orders for ${accountKey} on market ${marketID}`
+                  `Cancelled orders for ${accountKey}. Cancelled total orders: ${totalOrders}.`
                 );
               } catch (e) {
                 logger.error(
