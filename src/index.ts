@@ -197,7 +197,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                   `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
                 );
               }
-            }, 150000);
+            }, 60000);
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
