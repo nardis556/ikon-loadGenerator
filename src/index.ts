@@ -197,7 +197,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 break;
               }
 
-              await sleep(500);
+              await sleep(333);
             }
             logger.info(
               `Processed loop for ${accountKey} on market ${marketID}`
@@ -223,9 +223,9 @@ async function execLoop(clients: { [key: string]: IClient }) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
-            await sleep(5000);
+            await sleep(2000);
           }
-          await sleep(5000);
+          await sleep(2000);
         }
       }
     } catch (e) {
