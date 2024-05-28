@@ -208,26 +208,34 @@ async function execLoop(clients: { [key: string]: IClient }) {
           }
           await sleep(2000);
         }
-        setTimeout(
-          async () => {
-            try {
-              await client.RestAuthenticatedClient.cancelOrders({
-                ...client.getWalletAndNonce,
-              });
-              logger.info(`Cancelled orders for ${accountKey}.`);
-            } catch (e) {
-              logger.error(`Error cancelling orders for ${accountKey}`);
-            }
-          },
-          Math.random() > 0.5
-            ? 100000
-            : 0 +
-                Math.random() * 100000 +
-                Math.random() * 100000 +
-                Math.random() * 100000 +
-                Math.random() * 100000 +
-                Math.random() * 100000
+
+        const cancelTimeout = parseInt(
+          (
+            (Math.random() > 0.5 ? 100000 : 0) +
+            Math.random() * 100000 +
+            Math.random() * 100000 +
+            Math.random() * 100000 +
+            Math.random() * 100000 +
+            Math.random() * 100000 +
+            Math.random() * 100000 +
+            Math.random() * 100000
+          ).toString()
         );
+
+        logger.info(
+          `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
+        );
+
+        setTimeout(async () => {
+          try {
+            await client.RestAuthenticatedClient.cancelOrders({
+              ...client.getWalletAndNonce,
+            });
+            logger.info(`Cancelled orders for ${accountKey}.`);
+          } catch (e) {
+            logger.error(`Error cancelling orders for ${accountKey}`);
+          }
+        }, cancelTimeout);
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
