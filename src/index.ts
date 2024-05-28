@@ -127,7 +127,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
 
   const numberOfLevels = 9;
   const stepPercentage = 0.00111;
-  let previousMarket: string = null;
+  let previousClient: IClient = null;
 
   while (true) {
     try {
@@ -140,8 +140,6 @@ async function execLoop(clients: { [key: string]: IClient }) {
             const priceResolution = market.priceRes;
             const quantityResolution = market.quantityRes;
             let totalOrders = getOrders.length;
-
-            previousMarket = marketID;
 
             for (let level = 0; level < numberOfLevels; level++) {
               const priceIncrement = indexPrice * stepPercentage * (level + 1);
@@ -202,23 +200,6 @@ async function execLoop(clients: { [key: string]: IClient }) {
             logger.info(
               `Processed loop for ${accountKey} on market ${marketID}`
             );
-            setTimeout(async () => {
-              logger.info(
-                `Timeout finish, cancelling orders for market ${marketID}`
-              );
-              try {
-                await client.RestAuthenticatedClient.cancelOrders({
-                  ...client.getWalletAndNonce,
-                });
-                logger.info(
-                  `Cancelled orders for ${accountKey}. Cancelled total orders: ${totalOrders}.`
-                );
-              } catch (e) {
-                logger.error(
-                  `Error cancelling orders for ${accountKey} on market ${marketID}: ${e.message}`
-                );
-              }
-            }, 60000);
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
@@ -227,6 +208,24 @@ async function execLoop(clients: { [key: string]: IClient }) {
           }
           await sleep(2000);
         }
+        setTimeout(
+          async () => {
+            try {
+              await client.RestAuthenticatedClient.cancelOrders({
+                ...client.getWalletAndNonce,
+              });
+              logger.info(`Cancelled orders for ${accountKey}.`);
+            } catch (e) {
+              logger.error(`Error cancelling orders for ${accountKey}`);
+            }
+          },
+          Math.random() > 0.5
+            ? 100000
+            : 0 +
+                Math.random() * 100000 +
+                Math.random() * 100000 +
+                Math.random() * 100000
+        );
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
