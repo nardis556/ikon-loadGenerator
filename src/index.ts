@@ -61,12 +61,12 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
     //     ...client.getWalletAndNonce,
     //   })
     // ),
-    // retry(() =>
-    //   client.RestAuthenticatedClient.getOrders({
-    //     ...client.getWalletAndNonce,
-    //     limit: Number(process.env.OPEN_ORDERS),
-    //   })
-    // ),
+    retry(() =>
+      client.RestAuthenticatedClient.getOrders({
+        ...client.getWalletAndNonce,
+        limit: Number(process.env.OPEN_ORDERS),
+      })
+    ),
     retry(() =>
       client.RestPublicClient.getOrderBookLevel2({
         market: marketID,
@@ -125,8 +125,9 @@ function adjustValueToResolution(value, resolution) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
 
-  const numberOfLevels = 10;
+  const numberOfLevels = 9;
   const stepPercentage = 0.00111;
+  let previousMarket: string = null;
 
   while (true) {
     try {
@@ -134,10 +135,13 @@ async function execLoop(clients: { [key: string]: IClient }) {
         for (const market of markets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           try {
-            let [orderBook] = await fetchData(client, marketID);
+            let [getOrders, orderBook] = await fetchData(client, marketID);
             const indexPrice = parseFloat(orderBook.indexPrice);
             const priceResolution = market.priceRes;
             const quantityResolution = market.quantityRes;
+            let totalOrders = getOrders.length;
+
+            previousMarket = marketID;
 
             for (let level = 0; level < numberOfLevels; level++) {
               const priceIncrement = indexPrice * stepPercentage * (level + 1);
@@ -162,7 +166,14 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 ),
               };
 
-              CreateOrder(client, { ...buyParams }, accountKey, marketID);
+              if (totalOrders < Number(process.env.OPEN_ORDERS)) {
+                CreateOrder(client, { ...buyParams }, accountKey, marketID);
+                totalOrders++;
+              } else {
+                client.RestAuthenticatedClient.cancelOrders({
+                  ...client.getWalletAndNonce,
+                });
+              }
 
               const sellParams = {
                 market: marketID,
@@ -174,7 +185,16 @@ async function execLoop(clients: { [key: string]: IClient }) {
                   quantityResolution
                 ),
               };
-              CreateOrder(client, { ...sellParams }, accountKey, marketID);
+
+              if (totalOrders < Number(process.env.OPEN_ORDERS)) {
+                CreateOrder(client, { ...sellParams }, accountKey, marketID);
+                totalOrders++;
+              } else {
+                client.RestAuthenticatedClient.cancelOrders({
+                  ...client.getWalletAndNonce,
+                });
+              }
+
               await sleep(500);
             }
             logger.info(
