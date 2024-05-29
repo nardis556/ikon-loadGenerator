@@ -139,10 +139,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
             // let openPositions: idex.RestResponseGetPositions;
             // let getOrders: idex.RestResponseGetOrders;
             let orderBook: idex.RestResponseGetOrderBookLevel2;
-            [orderBook] = await fetchData(
-              client,
-              marketID
-            );
+            [orderBook] = await fetchData(client, marketID);
             const indexPrice = Number(orderBook.indexPrice);
             const midPrice =
               (Number(orderBook.bids[0][0]) + Number(orderBook.asks[0][0])) / 2;
@@ -222,7 +219,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 ...client.getWalletAndNonce,
               })
             );
-            await sleep(1000);
+            await sleep(5000);
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
@@ -281,7 +278,7 @@ async function CreateOrder(
   accountKey: string,
   marketID: string
 ) {
-  console.log(orderParam);
+  logger.debug(orderParam);
   client.RestAuthenticatedClient.createOrder({
     ...orderParam,
     ...client.getWalletAndNonce,
