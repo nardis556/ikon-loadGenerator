@@ -25,11 +25,11 @@ function randomDustQuantity(
   }
   switch (market) {
     case "BTC-USD":
-      minFactor = 8;
-    case "ETH-USD":
-      minFactor = 7;
-    case "IDEX-USD":
       minFactor = 4;
+    case "ETH-USD":
+      minFactor = 3;
+    case "IDEX-USD":
+      minFactor = 3;
     case "SOL-USD":
       minFactor = 3;
       break;
@@ -247,11 +247,11 @@ function orderSelection(
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          (Number(process.env.QUANTITY_ALPHA_FACTOR) / 2) *
+          (Number(process.env.QUANTITY_ALPHA_FACTOR)) *
           (1 *
             (1 +
               Math.floor(
-                Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 2)
+                Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR))
               ))),
         quantityRes,
         market,
@@ -274,11 +274,11 @@ function orderSelection(
             : idex.OrderType.takeProfitMarket,
         quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
-            (Number(process.env.QUANTITY_ALPHA_FACTOR) / 2) *
+            (Number(process.env.QUANTITY_ALPHA_FACTOR) / 3) *
             (1 *
               (1 +
                 Math.floor(
-                  Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 2)
+                  Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 3)
                 ))),
           quantityRes,
           market,
