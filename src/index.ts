@@ -59,18 +59,18 @@ interface BatchCall {}
 
 async function fetchData(client: IClient, marketID: string): Promise<any> {
   return await Promise.all([
-    retry(() =>
-      client.RestAuthenticatedClient.getPositions({
-        market: marketID,
-        ...client.getWalletAndNonce,
-      })
-    ),
-    retry(() =>
-      client.RestAuthenticatedClient.getOrders({
-        ...client.getWalletAndNonce,
-        limit: Number(process.env.OPEN_ORDERS),
-      })
-    ),
+    // retry(() =>
+    //   client.RestAuthenticatedClient.getPositions({
+    //     market: marketID,
+    //     ...client.getWalletAndNonce,
+    //   })
+    // ),
+    // retry(() =>
+    //   client.RestAuthenticatedClient.getOrders({
+    //     ...client.getWalletAndNonce,
+    //     limit: Number(process.env.OPEN_ORDERS),
+    //   })
+    // ),
     retry(() =>
       client.RestPublicClient.getOrderBookLevel2({
         market: marketID,
@@ -139,7 +139,10 @@ async function execLoop(clients: { [key: string]: IClient }) {
             // let openPositions: idex.RestResponseGetPositions;
             // let getOrders: idex.RestResponseGetOrders;
             let orderBook: idex.RestResponseGetOrderBookLevel2;
-            [orderBook] = await fetchData(client, marketID);
+            [orderBook] = await fetchData(
+              client,
+              marketID
+            );
             const indexPrice = Number(orderBook.indexPrice);
             const midPrice =
               (Number(orderBook.bids[0][0]) + Number(orderBook.asks[0][0])) / 2;
@@ -219,6 +222,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 ...client.getWalletAndNonce,
               })
             );
+            await sleep(1000);
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
@@ -227,7 +231,6 @@ async function execLoop(clients: { [key: string]: IClient }) {
           }
           await sleep(2000);
         }
-        cancelUntil(accountKey, client);
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
@@ -339,7 +342,18 @@ function createOrderParams(
 
 function cancelUntil(accountKey: string, client: IClient) {
   const cancelTimeout = parseInt(
-    (Math.random() * 420 + Math.random() * 69 + Math.random() * 1337).toString()
+    (
+      (Math.random() > 0.5 ? 100000 : 0) +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 420 +
+      Math.random() * 69 +
+      Math.random() * 1337
+    ).toString()
   );
 
   logger.info(
