@@ -136,13 +136,10 @@ async function execLoop(clients: { [key: string]: IClient }) {
         for (const market of markets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           try {
-            let openPositions: idex.RestResponseGetPositions;
-            let getOrders: idex.RestResponseGetOrders;
+            // let openPositions: idex.RestResponseGetPositions;
+            // let getOrders: idex.RestResponseGetOrders;
             let orderBook: idex.RestResponseGetOrderBookLevel2;
-            [openPositions, getOrders, orderBook] = await fetchData(
-              client,
-              marketID
-            );
+            [orderBook] = await fetchData(client, marketID);
             const indexPrice = Number(orderBook.indexPrice);
             const midPrice =
               (Number(orderBook.bids[0][0]) + Number(orderBook.asks[0][0])) / 2;
@@ -222,7 +219,6 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 ...client.getWalletAndNonce,
               })
             );
-            await sleep(1000);
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
@@ -231,6 +227,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
           }
           await sleep(2000);
         }
+        cancelUntil(accountKey, client);
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
@@ -342,18 +339,7 @@ function createOrderParams(
 
 function cancelUntil(accountKey: string, client: IClient) {
   const cancelTimeout = parseInt(
-    (
-      (Math.random() > 0.5 ? 100000 : 0) +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 420 +
-      Math.random() * 69 +
-      Math.random() * 1337
-    ).toString()
+    (Math.random() * 420 + Math.random() * 69 + Math.random() * 1337).toString()
   );
 
   logger.info(
