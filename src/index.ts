@@ -266,7 +266,7 @@ function createOrderParams(
     side: "buy",
     price: buyPrice,
     quantity: adjustValueToResolution(
-      parseFloat(market.makerOrderMinimum) * 33,
+      parseFloat(market.makerOrderMinimum) * 10,
       quantityResolution
     ),
   };
@@ -277,7 +277,7 @@ function createOrderParams(
     side: "sell",
     price: sellPrice,
     quantity: adjustValueToResolution(
-      parseFloat(market.makerOrderMinimum) * 33,
+      parseFloat(market.makerOrderMinimum) * 10,
       quantityResolution
     ),
   };
@@ -288,7 +288,6 @@ function cancelUntil(accountKey: string, client: IClient) {
   const cancelTimeout = parseInt(
     (
       (Math.random() > 0.5 ? 100000 : 0) +
-      Math.random() * 100000 +
       Math.random() * 100000 +
       Math.random() * 100000 +
       Math.random() * 100000 +
