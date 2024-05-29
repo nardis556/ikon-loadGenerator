@@ -12,6 +12,8 @@ import { ExtendedIDEXMarket } from "../src/init";
 import path from "path";
 import { setTimeout as sleep } from "timers/promises";
 import { generateOrderTemplate } from "./utils/generators";
+import { position } from "@chakra-ui/react";
+import { createLogger } from "winston";
 
 // import { db } from "./utils/mysqlConnector";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -53,14 +55,16 @@ const main = async () => {
   }
 };
 
+interface BatchCall {}
+
 async function fetchData(client: IClient, marketID: string): Promise<any> {
   return await Promise.all([
-    // retry(() =>
-    //   client.RestAuthenticatedClient.getPositions({
-    //     market: marketID,
-    //     ...client.getWalletAndNonce,
-    //   })
-    // ),
+    retry(() =>
+      client.RestAuthenticatedClient.getPositions({
+        market: marketID,
+        ...client.getWalletAndNonce,
+      })
+    ),
     retry(() =>
       client.RestAuthenticatedClient.getOrders({
         ...client.getWalletAndNonce,
@@ -79,7 +83,6 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
 function adjustValueToResolution(value, resolution) {
   let decimalsToKeep = 0;
 
-  // Determine the number of decimals to keep based on the resolution
   switch (resolution) {
     case "0.00000001":
       decimalsToKeep = 8;
@@ -121,13 +124,13 @@ function adjustValueToResolution(value, resolution) {
   const val = adjustedValue.toFixed(Math.max(decimalsToKeep, 0));
   return Number(val).toFixed(8);
 }
-
+// async function execLoop(clients: { [key: string]: IClient }) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
 
   const numberOfLevels = 9;
-  const stepPercentage = 0.00111;
-  let previousClient: IClient = null;
+  const orderStepSize = 0.000333;
+  const undesiredPositionStepPercentage = 0.000666;
 
   while (true) {
     try {
@@ -135,62 +138,89 @@ async function execLoop(clients: { [key: string]: IClient }) {
         for (const market of markets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           try {
-            let [getOrders, orderBook] = await fetchData(client, marketID);
+            let [openPositions, getOrders, orderBook] = await fetchData(
+              client,
+              marketID
+            );
             const indexPrice = parseFloat(orderBook.indexPrice);
             const priceResolution = market.priceRes;
             const quantityResolution = market.quantityRes;
             let totalOrders = getOrders.length;
 
+            let posQuantity = parseFloat(openPositions[0]?.quantity || "0");
+            logger.debug(`Position Quantity for ${marketID}: ${posQuantity}`);
+
+            let lastBuyPrice = indexPrice;
+            let lastSellPrice = indexPrice;
+
             for (let level = 0; level < numberOfLevels; level++) {
-              const priceIncrement = indexPrice * stepPercentage * (level + 1);
+              let buyPrice: any, sellPrice: any;
 
-              const buyPrice = adjustValueToResolution(
-                indexPrice - priceIncrement,
-                priceResolution
-              );
-              const sellPrice = adjustValueToResolution(
-                indexPrice + priceIncrement,
-                priceResolution
-              );
-
-              const buyParams = {
-                market: marketID,
-                type: "limit",
-                side: "buy",
-                price: buyPrice,
-                quantity: adjustValueToResolution(
-                  parseFloat(market.makerOrderMinimum) * 25,
-                  quantityResolution
-                ),
-              };
-
-              if (totalOrders < Number(process.env.OPEN_ORDERS)) {
-                CreateOrder(client, { ...buyParams }, accountKey, marketID);
-                totalOrders++;
+              if (level === 0) {
+                buyPrice = adjustValueToResolution(
+                  indexPrice -
+                    (posQuantity > 0
+                      ? indexPrice * undesiredPositionStepPercentage
+                      : indexPrice * orderStepSize),
+                  priceResolution
+                );
+                sellPrice = adjustValueToResolution(
+                  indexPrice +
+                    (posQuantity < 0
+                      ? indexPrice * undesiredPositionStepPercentage
+                      : indexPrice * orderStepSize),
+                  priceResolution
+                );
+                lastBuyPrice = buyPrice;
+                lastSellPrice = sellPrice;
               } else {
-                client.RestAuthenticatedClient.cancelOrders({
-                  ...client.getWalletAndNonce,
-                });
-                break;
+                buyPrice = adjustValueToResolution(
+                  parseFloat(lastBuyPrice.toString()) -
+                    indexPrice * orderStepSize,
+                  priceResolution
+                );
+                sellPrice = adjustValueToResolution(
+                  parseFloat(lastSellPrice.toString()) +
+                    indexPrice * orderStepSize,
+                  priceResolution
+                );
+                lastBuyPrice = buyPrice;
+                lastSellPrice = sellPrice;
               }
 
-              const sellParams = {
-                market: marketID,
-                type: "limit",
-                side: "sell",
-                price: sellPrice,
-                quantity: adjustValueToResolution(
-                  parseFloat(market.makerOrderMinimum) * 25,
-                  quantityResolution
-                ),
-              };
+              const { buyParams, sellParams } = createOrderParams(
+                marketID,
+                buyPrice,
+                market,
+                quantityResolution,
+                sellPrice
+              );
+
+              logger.debug(`Buy: ${buyPrice}, Sell: ${sellPrice}`);
+              logger.debug(`INDEX PRICE: ${indexPrice}`);
+              logger.debug(`Buy: ${buyPrice} | Sell: ${sellPrice}`);
+              logger.debug(
+                `Quantity: ${buyParams.quantity} | ${sellParams.quantity}`
+              );
+              logger.debug(
+                `Buy price diff from indexPrice: ${
+                  indexPrice - buyParams.price
+                }`
+              );
+              logger.debug(
+                `Sell price diff from indexPrice: ${
+                  sellParams.price - indexPrice
+                }`
+              );
 
               if (totalOrders < Number(process.env.OPEN_ORDERS)) {
-                CreateOrder(client, { ...sellParams }, accountKey, marketID);
-                totalOrders++;
+                await CreateOrder(client, buyParams, accountKey, marketID);
+                await CreateOrder(client, sellParams, accountKey, marketID);
+                totalOrders += 2;
               } else {
-                client.RestAuthenticatedClient.cancelOrders({
+                await client.RestAuthenticatedClient.cancelOrders({
                   ...client.getWalletAndNonce,
+                  market: marketID,
                 });
                 break;
               }
@@ -208,34 +238,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
           }
           await sleep(2000);
         }
-
-        const cancelTimeout = parseInt(
-          (
-            (Math.random() > 0.5 ? 100000 : 0) +
-            Math.random() * 100000 +
-            Math.random() * 100000 +
-            Math.random() * 100000 +
-            Math.random() * 100000 +
-            Math.random() * 100000 +
-            Math.random() * 100000 +
-            Math.random() * 100000
-          ).toString()
-        );
-
-        logger.info(
-          `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
-        );
-
-        setTimeout(async () => {
-          try {
-            await client.RestAuthenticatedClient.cancelOrders({
-              ...client.getWalletAndNonce,
-            });
-            logger.info(`Cancelled orders for ${accountKey}.`);
-          } catch (e) {
-            logger.error(`Error cancelling orders for ${accountKey}`);
-          }
-        }, cancelTimeout);
+        cancelUntil(accountKey, client);
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
@@ -248,6 +251,70 @@ async function execLoop(clients: { [key: string]: IClient }) {
 main().catch((error) => {
   logger.error("Error during main function:", error);
 });
+
+function createOrderParams(
+  marketID: string,
+  buyPrice: any,
+  market: ExtendedIDEXMarket,
+  quantityResolution: string,
+  sellPrice: any
+) {
+  const buyParams = {
+    market: marketID,
+    type: "limit",
+    side: "buy",
+    price: buyPrice,
+    quantity: adjustValueToResolution(
+      parseFloat(market.makerOrderMinimum) * 33,
+      quantityResolution
+    ),
+  };
+
+  const sellParams = {
+    market: marketID,
+    type: "limit",
+    side: "sell",
+    price: sellPrice,
+    quantity: adjustValueToResolution(
+      parseFloat(market.makerOrderMinimum) * 33,
+      quantityResolution
+    ),
+  };
+  return { buyParams, sellParams };
+}
+
+function cancelUntil(accountKey: string, client: IClient) {
+  const cancelTimeout = parseInt(
+    (
+      (Math.random() > 0.5 ? 100000 : 0) +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 420 +
+      Math.random() * 69 +
+      Math.random() * 1337
+    ).toString()
+  );
+
+  logger.info(
+    `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
+  );
+
+  setTimeout(async () => {
+    try {
+      await client.RestAuthenticatedClient.cancelOrders({
+        ...client.getWalletAndNonce,
+      });
+      logger.info(`Cancelled orders for ${accountKey}.`);
+    } catch (e) {
+      logger.error(`Error cancelling orders for ${accountKey}`);
+    }
+  }, cancelTimeout);
+}
 
 async function CancelOrder(
   client: IClient,
