@@ -128,10 +128,7 @@ function adjustValueToResolution(value, resolution) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
 
-  const numberOfLevels = 9;
-  const orderStepSize = Number(process.env.ORDER_STEP_SIZE) || 0.000333;
-  const undesiredPositionStepPercentage =
-    Number(process.env.UNDESIRED_STEP_SIZE) || 0.000666;
+  const percentageVariation = 0.0000123;
 
   while (true) {
     try {
@@ -139,98 +136,93 @@ async function execLoop(clients: { [key: string]: IClient }) {
         for (const market of markets) {
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           try {
-            let [openPositions, getOrders, orderBook] = await fetchData(
+            let openPositions: idex.RestResponseGetPositions;
+            let getOrders: idex.RestResponseGetOrders;
+            let orderBook: idex.RestResponseGetOrderBookLevel2;
+            [openPositions, getOrders, orderBook] = await fetchData(
               client,
               marketID
             );
-            const indexPrice = parseFloat(orderBook.indexPrice);
-            const priceResolution = market.priceRes;
-            const quantityResolution = market.quantityRes;
-            let totalOrders = getOrders.length;
+            const indexPrice = Number(orderBook.indexPrice);
+            const midPrice =
+              (Number(orderBook.bids[0][0]) + Number(orderBook.asks[0][0])) / 2;
+            const priceDifference = indexPrice - midPrice;
 
-            let posQuantity = parseFloat(openPositions[0]?.quantity || "0");
-            logger.debug(`Position Quantity for ${marketID}: ${posQuantity}`);
+            let isBids = priceDifference > 0;
 
-            let lastBuyPrice = indexPrice;
-            let lastSellPrice = indexPrice;
+            const {
+              weightedPrice: weightedBuyPrice,
+              accumulatedQuantity: totalBuyQuantity,
+            } = calculateLimitWeight(orderBook.bids, indexPrice, isBids);
 
-            for (let level = 0; level < numberOfLevels; level++) {
-              let buyPrice: any, sellPrice: any;
+            const {
+              weightedPrice: weightedSellPrice,
+              accumulatedQuantity: totalSellQuantity,
+            } = calculateLimitWeight(orderBook.asks, indexPrice, !isBids);
 
-              if (level === 0) {
-                buyPrice = adjustValueToResolution(
-                  indexPrice -
-                    (posQuantity > 0
-                      ? indexPrice * undesiredPositionStepPercentage
-                      : indexPrice * orderStepSize),
-                  priceResolution
-                );
-                sellPrice = adjustValueToResolution(
-                  indexPrice +
-                    (posQuantity < 0
-                      ? indexPrice * undesiredPositionStepPercentage
-                      : indexPrice * orderStepSize),
-                  priceResolution
-                );
-                lastBuyPrice = buyPrice;
-                lastSellPrice = sellPrice;
-              } else {
-                buyPrice = adjustValueToResolution(
-                  parseFloat(lastBuyPrice.toString()) -
-                    indexPrice * orderStepSize,
-                  priceResolution
-                );
-                sellPrice = adjustValueToResolution(
-                  parseFloat(lastSellPrice.toString()) +
-                    indexPrice * orderStepSize,
-                  priceResolution
-                );
-                lastBuyPrice = buyPrice;
-                lastSellPrice = sellPrice;
-              }
-
-              const { buyParams, sellParams } = createOrderParams(
-                marketID,
-                buyPrice,
-                market,
-                quantityResolution,
-                sellPrice
-              );
-
-              logger.debug(`Buy: ${buyPrice}, Sell: ${sellPrice}`);
-              logger.debug(`INDEX PRICE: ${indexPrice}`);
-              logger.debug(`Buy: ${buyPrice} | Sell: ${sellPrice}`);
-              logger.debug(
-                `Quantity: ${buyParams.quantity} | ${sellParams.quantity}`
-              );
-              logger.debug(
-                `Buy price diff from indexPrice: ${
-                  indexPrice - buyParams.price
-                }`
-              );
-              logger.debug(
-                `Sell price diff from indexPrice: ${
-                  sellParams.price - indexPrice
-                }`
-              );
-
-              if (totalOrders < Number(process.env.OPEN_ORDERS)) {
-                await CreateOrder(client, buyParams, accountKey, marketID);
-                await CreateOrder(client, sellParams, accountKey, marketID);
-                totalOrders += 2;
-              } else {
-                await client.RestAuthenticatedClient.cancelOrders({
-                  ...client.getWalletAndNonce,
-                  market: marketID,
-                });
-                break;
-              }
-
-              await sleep(333);
-            }
             logger.info(
-              `Processed loop for ${accountKey} on market ${marketID}`
+              `Weighted Buy Price up to index: ${weightedBuyPrice}, Total Buy Quantity: ${totalBuyQuantity}`
             );
+            logger.info(
+              `Weighted Sell Price up to index: ${weightedSellPrice}, Total Sell Quantity: ${totalSellQuantity}`
+            );
+
+            const sellParams = createOrderParams(
+              marketID,
+              indexPrice,
+              market,
+              market.quantityRes,
+              indexPrice,
+              totalBuyQuantity,
+              totalSellQuantity
+            );
+
+            const buyParams = createOrderParams(
+              marketID,
+              indexPrice,
+              market,
+              market.quantityRes,
+              indexPrice,
+              totalBuyQuantity,
+              totalSellQuantity
+            );
+
+            if (isBids && Number(sellParams.sellParams.price) !== 0) {
+              CreateOrder(
+                client,
+                sellParams.sellParams,
+                accountKey,
+                marketID
+              ).then(async () => {
+                await sleep(5000);
+                retry(() =>
+                  client.RestAuthenticatedClient.cancelOrders({
+                    ...client.getWalletAndNonce,
+                  })
+                );
+              });
+            } else if (!isBids && Number(buyParams.buyParams.price) !== 0) {
+              CreateOrder(
+                client,
+                buyParams.buyParams,
+                accountKey,
+                marketID
+              ).then(async () => {
+                await sleep(5000);
+                retry(() =>
+                  client.RestAuthenticatedClient.cancelOrders({
+                    ...client.getWalletAndNonce,
+                  })
+                );
+              });
+            }
+
+            await retry(() =>
+              client.RestAuthenticatedClient.cancelOrders({
+                ...client.getWalletAndNonce,
+              })
+            );
+            await sleep(1000);
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
@@ -239,7 +231,6 @@ async function execLoop(clients: { [key: string]: IClient }) {
           }
           await sleep(2000);
         }
-        cancelUntil(accountKey, client);
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
@@ -249,37 +240,102 @@ async function execLoop(clients: { [key: string]: IClient }) {
   }
 }
 
+function calculateLimitWeight(orders, indexPrice, isBids) {
+  let accumulatedWeight = 0;
+  let accumulatedQuantity = 0;
+
+  if (isBids) {
+    for (let i = 0; i < orders.length; i++) {
+      const [price, quantity] = orders[i];
+      if (Number(price) >= indexPrice) {
+        accumulatedWeight += Number(price) * Number(quantity);
+        accumulatedQuantity += Number(quantity);
+      } else {
+        break;
+      }
+    }
+  } else {
+    for (let i = 0; i < orders.length; i++) {
+      const [price, quantity] = orders[i];
+      if (Number(price) <= indexPrice) {
+        accumulatedWeight += Number(price) * Number(quantity);
+        accumulatedQuantity += Number(quantity);
+      } else {
+        break;
+      }
+    }
+  }
+
+  const weightedPrice =
+    accumulatedQuantity > 0 ? accumulatedWeight / accumulatedQuantity : 0;
+  return { weightedPrice, accumulatedQuantity };
+}
+
 main().catch((error) => {
   logger.error("Error during main function:", error);
 });
+
+async function CreateOrder(
+  client: IClient,
+  orderParam: any,
+  accountKey: string,
+  marketID: string
+) {
+  console.log(orderParam);
+  client.RestAuthenticatedClient.createOrder({
+    ...orderParam,
+    ...client.getWalletAndNonce,
+  }).catch(async (e) => {
+    logger.error(
+      `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
+        e.response ? e.response?.data || e.response : e,
+        null,
+        2
+      )}`
+    );
+    if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
+      logger.error(`Trading disabled terminating process.`);
+      process.exit();
+    }
+    await sleep(1000);
+  });
+}
 
 function createOrderParams(
   marketID: string,
   buyPrice: any,
   market: ExtendedIDEXMarket,
   quantityResolution: string,
-  sellPrice: any
+  sellPrice: any,
+  buyQuantity: any,
+  sellQuantity: any
 ) {
   const buyParams = {
     market: marketID,
     type: "limit",
-    side: "buy",
-    price: buyPrice,
-    quantity: adjustValueToResolution(
-      parseFloat(market.makerOrderMinimum) * 10,
-      quantityResolution
+    side: "sell",
+    price: adjustValueToResolution(
+      parseFloat((Number(buyPrice) * 0.99999).toString()),
+      market.priceRes
     ),
+    quantity:
+      sellQuantity > Number(market.maximumPositionSize)
+        ? market.maximumPositionSize
+        : adjustValueToResolution(parseFloat(sellQuantity), quantityResolution),
   };
 
   const sellParams = {
     market: marketID,
     type: "limit",
-    side: "sell",
-    price: sellPrice,
-    quantity: adjustValueToResolution(
-      parseFloat(market.makerOrderMinimum) * 10,
-      quantityResolution
+    side: "buy",
+    price: adjustValueToResolution(
+      parseFloat((Number(sellPrice) * 1.00001).toString()),
+      market.priceRes
     ),
+    quantity:
+      buyQuantity > Number(market.maximumPositionSize)
+        ? market.maximumPositionSize
+        : adjustValueToResolution(parseFloat(sellQuantity), quantityResolution),
   };
   return { buyParams, sellParams };
 }
@@ -345,29 +401,4 @@ async function CancelOrder(
       await sleep(1000);
     });
   return { totalOrdersCount, cancelledOrders };
-}
-
-async function CreateOrder(
-  client: IClient,
-  orderParam: any,
-  accountKey: string,
-  marketID: string
-) {
-  client.RestAuthenticatedClient.createOrder({
-    ...orderParam,
-    ...client.getWalletAndNonce,
-  }).catch(async (e) => {
-    logger.error(
-      `Error creating order for ${accountKey} on market ${marketID}: ${JSON.stringify(
-        e.response ? e.response?.data || e.response : e,
-        null,
-        2
-      )}`
-    );
-    if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
-      logger.error(`Trading disabled terminating process.`);
-      process.exit();
-    }
-    await sleep(1000);
-  });
 }
