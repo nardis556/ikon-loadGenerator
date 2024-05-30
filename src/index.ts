@@ -124,14 +124,30 @@ function adjustValueToResolution(value, resolution) {
   const val = adjustedValue.toFixed(Math.max(decimalsToKeep, 0));
   return Number(val).toFixed(8);
 }
+
+let isTradingEnabled = true;
+
+async function checkAndPauseIfTradingDisabled() {
+  if (!isTradingEnabled) {
+    logger.error(`Trading disabled. Pausing trading operations.`);
+    await sleep(300000);
+    isTradingEnabled = true;
+  }
+}
 // async function execLoop(clients: { [key: string]: IClient }) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
 
   while (true) {
+    await checkAndPauseIfTradingDisabled();
+
     try {
       for (const [accountKey, client] of Object.entries(clients)) {
+        await checkAndPauseIfTradingDisabled();
+
         for (const market of markets) {
+          await checkAndPauseIfTradingDisabled();
+
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           try {
             // let openPositions: idex.RestResponseGetPositions;
@@ -274,8 +290,8 @@ async function CreateOrder(
       )}`
     );
     if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
-      logger.error(`Trading disabled.`);
-      await sleep(120000);
+      logger.error(`Trading disabled. Pausing trading operations.`);
+      isTradingEnabled = false;
     }
     await sleep(1000);
   });
@@ -302,34 +318,4 @@ function createOrderParams(
     timeInForce: idex.TimeInForce.ioc,
   };
   return { params };
-}
-async function CancelOrder(
-  client: IClient,
-  totalOrdersCount: number,
-  accountKey: string,
-  cancelledOrders: boolean,
-  marketID: string
-) {
-  client.RestAuthenticatedClient.cancelOrders({
-    ...client.getWalletAndNonce,
-    // market: previousMarket,
-  })
-    .then((res) => {
-      totalOrdersCount -= res.length;
-      logger.info(
-        `Cancelled ${res.length} orders for ${accountKey} due to limit exceedance.`
-      );
-      cancelledOrders = true;
-    })
-    .catch(async (e) => {
-      logger.error(
-        `Error cancelling orders for ${accountKey} on market ${marketID}: ${JSON.stringify(
-          e.response ? e.response?.data || e.response : e,
-          null,
-          2
-        )}`
-      );
-      await sleep(1000);
-    });
-  return { totalOrdersCount, cancelledOrders };
 }
