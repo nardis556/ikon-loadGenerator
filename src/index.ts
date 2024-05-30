@@ -330,9 +330,9 @@ function createOrderParams(
       market.priceRes
     ),
     quantity:
-      buyQuantity > Number(market.maximumPositionSize)
+    sellQuantity > Number(market.maximumPositionSize)
         ? market.maximumPositionSize
-        : adjustValueToResolution(parseFloat(buyQuantity), quantityResolution),
+        : adjustValueToResolution(parseFloat(sellQuantity), quantityResolution),
   };
   return { buyParams, sellParams };
 }
