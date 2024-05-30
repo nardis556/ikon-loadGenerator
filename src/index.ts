@@ -11,9 +11,9 @@ import dotenv from "dotenv";
 import { ExtendedIDEXMarket } from "../src/init";
 import path from "path";
 import { setTimeout as sleep } from "timers/promises";
-import { generateOrderTemplate } from "./utils/generators";
-import { position } from "@chakra-ui/react";
-import { createLogger } from "winston";
+// import { generateOrderTemplate } from "./utils/generators";
+// import { position } from "@chakra-ui/react";
+// import { createLogger } from "winston";
 
 // import { db } from "./utils/mysqlConnector";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -55,7 +55,7 @@ const main = async () => {
   }
 };
 
-interface BatchCall {}
+// interface BatchCall {}
 
 async function fetchData(client: IClient, marketID: string): Promise<any> {
   return await Promise.all([
@@ -237,7 +237,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
   }
 }
 
-function calculateLimitWeight(orders, indexPrice, isBids) {
+function calculateLimitWeight(orders: any, indexPrice: any, isBids: any) {
   let accumulatedWeight = 0;
   let accumulatedQuantity = 0;
 
