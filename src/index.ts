@@ -128,8 +128,6 @@ function adjustValueToResolution(value, resolution) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
 
-  const percentageVariation = 0.0000123;
-
   while (true) {
     try {
       for (const [accountKey, client] of Object.entries(clients)) {
@@ -141,77 +139,63 @@ async function execLoop(clients: { [key: string]: IClient }) {
             let orderBook: idex.RestResponseGetOrderBookLevel2;
             [orderBook] = await fetchData(client, marketID);
             const indexPrice = Number(orderBook.indexPrice);
-            const midPrice =
-              (Number(orderBook.bids[0][0]) + Number(orderBook.asks[0][0])) / 2;
-            const priceDifference = indexPrice - midPrice;
-
-            let isBids = priceDifference > 0;
 
             const {
               weightedPrice: weightedBuyPrice,
               accumulatedQuantity: totalBuyQuantity,
-            } = calculateLimitWeight(orderBook.bids, indexPrice, isBids);
+            } = calculateLimitWeight(orderBook.bids, indexPrice, true);
 
             const {
               weightedPrice: weightedSellPrice,
               accumulatedQuantity: totalSellQuantity,
-            } = calculateLimitWeight(orderBook.asks, indexPrice, !isBids);
+            } = calculateLimitWeight(orderBook.asks, indexPrice, false);
 
             logger.info(
-              `Weighted Buy Price up to index: ${weightedBuyPrice}, Total Buy Quantity: ${totalBuyQuantity}`
+              `Weighted buyPrice : ${weightedBuyPrice.toFixed(
+                8
+              )} | Quantity: ${totalBuyQuantity.toFixed(8)}`
             );
             logger.info(
-              `Weighted Sell Price up to index: ${weightedSellPrice}, Total Sell Quantity: ${totalSellQuantity}`
+              `Weighted sellPrice: ${weightedSellPrice.toFixed(
+                8
+              )} | Quantity: ${totalSellQuantity.toFixed(8)}`
             );
 
-            const sellParams = createOrderParams(
-              marketID,
-              indexPrice,
-              market,
-              market.quantityRes,
-              indexPrice,
-              totalBuyQuantity,
-              totalSellQuantity
-            );
+            let orderParams: any = null;
+            if (totalBuyQuantity > totalSellQuantity) {
+              orderParams = createOrderParams(
+                marketID,
+                "sell",
+                indexPrice,
+                totalBuyQuantity,
+                market
+              );
+            } else if (totalSellQuantity > totalBuyQuantity) {
+              orderParams = createOrderParams(
+                marketID,
+                "buy",
+                indexPrice,
+                totalSellQuantity,
+                market
+              );
+            }
 
-            const buyParams = createOrderParams(
-              marketID,
-              indexPrice,
-              market,
-              market.quantityRes,
-              indexPrice,
-              totalBuyQuantity,
-              totalSellQuantity
-            );
+            orderParams &&
+              logger.debug(
+                `Order Params: ${JSON.stringify(orderParams, null, 2)}`
+              );
 
-            if (isBids && Number(sellParams.sellParams.price) !== 0) {
-              CreateOrder(
+            if (orderParams !== null) {
+              await CreateOrder(
                 client,
-                sellParams.sellParams,
+                orderParams.params,
                 accountKey,
                 marketID
-              ).then(async () => {
-                await sleep(5000);
-                retry(() =>
-                  client.RestAuthenticatedClient.cancelOrders({
-                    ...client.getWalletAndNonce,
-                  })
-                );
-              });
-            } else if (!isBids && Number(buyParams.buyParams.price) !== 0) {
-              CreateOrder(
-                client,
-                buyParams.buyParams,
-                accountKey,
-                marketID
-              ).then(async () => {
-                await sleep(5000);
-                retry(() =>
-                  client.RestAuthenticatedClient.cancelOrders({
-                    ...client.getWalletAndNonce,
-                  })
-                );
-              });
+              );
+            } else {
+              logger.info(
+                `No orders to create for ${accountKey} on market ${marketID}`
+              );
             }
 
             await retry(() =>
@@ -278,7 +262,6 @@ async function CreateOrder(
   accountKey: string,
   marketID: string
 ) {
-  logger.debug(JSON.stringify(orderParam, null, 2));
   client.RestAuthenticatedClient.createOrder({
     ...orderParam,
     ...client.getWalletAndNonce,
@@ -299,42 +282,26 @@ async function CreateOrder(
 }
 
 function createOrderParams(
-  marketID: string,
-  buyPrice: any,
-  market: ExtendedIDEXMarket,
-  quantityResolution: string,
-  sellPrice: any,
-  buyQuantity: any,
-  sellQuantity: any
+  marketId: string,
+  side: idex.OrderSide,
+  price: number,
+  quantity: number,
+  market: ExtendedIDEXMarket
 ) {
-  const buyParams = {
-    market: marketID,
-    type: "limit",
-    side: "sell",
-    price: adjustValueToResolution(
-      parseFloat((Number(buyPrice) * 0.99999).toString()),
-      market.priceRes
-    ),
-    quantity:
-      sellQuantity > Number(market.maximumPositionSize)
-        ? market.maximumPositionSize
-        : adjustValueToResolution(parseFloat(sellQuantity), quantityResolution),
-  };
+  side === "buy" ? (price = price * 1.00000001) : (price = price * 0.99999999);
 
-  const sellParams = {
-    market: marketID,
+  const params = {
+    market: marketId,
     type: "limit",
-    side: "buy",
-    price: adjustValueToResolution(
-      parseFloat((Number(sellPrice) * 1.00001).toString()),
-      market.priceRes
-    ),
+    side: side,
+    price: adjustValueToResolution(price.toString(), market.priceRes),
     quantity:
-    sellQuantity > Number(market.maximumPositionSize)
+      quantity > Number(market.maximumPositionSize)
         ? market.maximumPositionSize
-        : adjustValueToResolution(parseFloat(sellQuantity), quantityResolution),
+        : adjustValueToResolution(quantity, market.quantityRes),
+    timeInForce: idex.TimeInForce.ioc,
   };
-  return { buyParams, sellParams };
+  return { params };
 }
 async function CancelOrder(
   client: IClient,
