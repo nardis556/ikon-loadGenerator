@@ -287,7 +287,7 @@ function createOrderParams(
       parseFloat(market.makerOrderMinimum) * 10,
       quantityResolution
     ),
-    timeInForce: idex.TimeInForce.gtx,
+    // timeInForce: idex.TimeInForce.gtx,
   };
 
   const sellParams = {
