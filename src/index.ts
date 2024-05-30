@@ -10,7 +10,7 @@ import { retry } from "./utils/retry";
 import dotenv from "dotenv";
 import { ExtendedIDEXMarket } from "../src/init";
 import path from "path";
-import { setTimeout } from "timers/promises";
+import { setTimeout as sleep } from "timers/promises";
 import { generateOrderTemplate } from "./utils/generators";
 
 // import { db } from "./utils/mysqlConnector";
@@ -81,7 +81,7 @@ let isTradingEnabled = true;
 async function checkAndPauseIfTradingDisabled() {
   if (!isTradingEnabled) {
     logger.error(`Trading disabled. Pausing trading operations.`);
-    await setTimeout(300000);
+    await sleep(300000);
     isTradingEnabled = true;
   }
 }
@@ -210,9 +210,7 @@ async function execLoop(
                 );
 
                 process.env.COOLDOWN === "true" &&
-                  (await setTimeout(
-                    Number(process.env.COOLDOWN_PER_ORDER) * 1000
-                  ));
+                  (await sleep(Number(process.env.COOLDOWN_PER_ORDER) * 1000));
               }
             }
             const orderEndTime = Date.now();
@@ -226,11 +224,11 @@ async function execLoop(
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
-            await setTimeout(5000);
+            await sleep(5000);
           }
 
           process.env.COOLDOWN === "true" &&
-            (await setTimeout(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
+            (await sleep(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
           side =
             side === idex.OrderSide.buy
               ? idex.OrderSide.sell
@@ -254,11 +252,12 @@ async function execLoop(
             ? idex.OrderSide.sell
             : idex.OrderSide.buy;
         process.env.COOLDOWN === "true" &&
-          (await setTimeout(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
+          (await sleep(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
+        cancelUntil(accountKey, client);
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
-      await setTimeout(5000);
+      await sleep(5000);
       continue;
     }
   }
@@ -267,6 +266,38 @@ async function execLoop(
 main().catch((error) => {
   logger.error("Error during main function:", error);
 });
+
+function cancelUntil(accountKey: string, client: IClient) {
+  const cancelTimeout = parseInt(
+    (
+      (Math.random() > 0.5 ? 100000 : 0) +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 100000 +
+      Math.random() * 420 +
+      Math.random() * 69 +
+      Math.random() * 1337
+    ).toString()
+  );
+
+  logger.info(
+    `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
+  );
+
+  setTimeout(async () => {
+    try {
+      await client.RestAuthenticatedClient.cancelOrders({
+        ...client.getWalletAndNonce,
+      });
+      logger.info(`Cancelled orders for ${accountKey}.`);
+    } catch (e) {
+      logger.error(`Error cancelling orders for ${accountKey}`);
+    }
+  }, cancelTimeout);
+}
 
 // function calculateBestPrice(bestAsk: any, bestBid: any, indexPrice: string) {
 //   const parsedBestBid = Number(bestBid) > 0 ? Number(bestBid) : 0;
@@ -467,7 +498,7 @@ async function CancelOrder(
           2
         )}`
       );
-      await setTimeout(1000);
+      await sleep(1000);
     });
   return { totalOrdersCount, cancelledOrders };
 }
@@ -493,6 +524,6 @@ async function CreateOrder(
       logger.error(`Trading disabled terminating process.`);
       isTradingEnabled = true;
     }
-    await setTimeout(1000);
+    await sleep(1000);
   });
 }
