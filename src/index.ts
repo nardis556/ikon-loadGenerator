@@ -134,6 +134,7 @@ async function checkAndPauseIfTradingDisabled() {
     isTradingEnabled = true;
   }
 }
+
 // async function execLoop(clients: { [key: string]: IClient }) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
