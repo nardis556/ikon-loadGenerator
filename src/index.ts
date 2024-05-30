@@ -209,6 +209,12 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 accountKey,
                 marketID
               );
+              logger.info(
+                `Created ${orderParams.side} order for ${accountKey} on market ${marketID}`
+              );
+              logger.info(
+                `Market: ${marketID} | INDEX ${indexPrice} p${orderParams.price} q${orderParams.quantity}`
+              );
             } else {
               logger.info(
                 `No orders to create for ${accountKey} on market ${marketID}`
