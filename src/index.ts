@@ -76,6 +76,16 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
   ]);
 }
 
+let isTradingEnabled = true;
+
+async function checkAndPauseIfTradingDisabled() {
+  if (!isTradingEnabled) {
+    logger.error(`Trading disabled. Pausing trading operations.`);
+    await setTimeout(300000);
+    isTradingEnabled = true;
+  }
+}
+
 async function execLoop(
   clients: { [key: string]: IClient },
   initSide: idex.OrderSide
@@ -91,11 +101,14 @@ async function execLoop(
   // await handler.initWebSocket();
 
   while (true) {
+    await checkAndPauseIfTradingDisabled();
     try {
       for (const [accountKey, client] of Object.entries(clients)) {
+        await checkAndPauseIfTradingDisabled();
         let updatedMarkets = markets;
         let cancelledOrders: boolean = false;
         for (const market of updatedMarkets) {
+          await checkAndPauseIfTradingDisabled();
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           let totalOrdersCount: number;
           let currentOrderCount: number = 0;
@@ -476,7 +489,7 @@ async function CreateOrder(
     );
     if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
       logger.error(`Trading disabled terminating process.`);
-      process.exit();
+      isTradingEnabled = true;
     }
     await setTimeout(1000);
   });
