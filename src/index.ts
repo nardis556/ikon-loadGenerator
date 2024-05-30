@@ -332,8 +332,8 @@ function validateOrderSide(
     "totalValue"
   ).totalValue;
 
-  const bidsWeight = bidsCalculation.weight * 0.98;
-  const asksWeight = asksCalculation.weight * 1.02;
+  const bidsWeight = bidsCalculation.weight * 1.01;
+  const asksWeight = asksCalculation.weight * 0.99;
 
   if (bidsWeight > (bidsWeight + asksWeight) / 2) {
     side = idex.OrderSide.sell;
