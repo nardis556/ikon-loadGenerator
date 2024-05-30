@@ -210,10 +210,10 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 marketID
               );
               logger.info(
-                `Created ${orderParams.side} order for ${accountKey} on market ${marketID}`
+                `Created ${orderParams.params.side} order for ${accountKey} on market ${marketID}`
               );
               logger.info(
-                `Market: ${marketID} | INDEX ${indexPrice} p${orderParams.price} q${orderParams.quantity}`
+                `Market: ${marketID} | INDEX ${indexPrice} p${orderParams.params.price} q${orderParams.params.quantity}`
               );
             } else {
               logger.info(
