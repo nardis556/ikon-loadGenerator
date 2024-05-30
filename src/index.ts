@@ -128,7 +128,7 @@ function adjustValueToResolution(value, resolution) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
 
-  const numberOfLevels = 9;
+  const numberOfLevels = 10;
   const orderStepSize = Number(process.env.ORDER_STEP_SIZE) || 0.000333;
   const undesiredPositionStepPercentage =
     Number(process.env.UNDESIRED_STEP_SIZE) || 0.000666;
