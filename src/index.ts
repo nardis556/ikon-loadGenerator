@@ -268,34 +268,34 @@ main().catch((error) => {
   logger.error("Error during main function:", error);
 });
 
-function calculateBestPrice(bestAsk: any, bestBid: any, indexPrice: string) {
-  const parsedBestBid = Number(bestBid) > 0 ? Number(bestBid) : 0;
-  const parsedBestAsk = Number(bestAsk) > 0 ? Number(bestAsk) : 0;
-  const parsedIndexPrice = Number(indexPrice);
+// function calculateBestPrice(bestAsk: any, bestBid: any, indexPrice: string) {
+//   const parsedBestBid = Number(bestBid) > 0 ? Number(bestBid) : 0;
+//   const parsedBestAsk = Number(bestAsk) > 0 ? Number(bestAsk) : 0;
+//   const parsedIndexPrice = Number(indexPrice);
 
-  const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
-  const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
-  const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
+//   const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
+//   const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
+//   const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
 
-  if (parsedBestBid === 0 && parsedBestAsk === 0) {
-    return parsedIndexPrice.toFixed(8);
-  }
+//   if (parsedBestBid === 0 && parsedBestAsk === 0) {
+//     return parsedIndexPrice.toFixed(8);
+//   }
 
-  let totalWeight = indexWeight;
-  let totalValue = indexWeight * parsedIndexPrice;
+//   let totalWeight = indexWeight;
+//   let totalValue = indexWeight * parsedIndexPrice;
 
-  if (parsedBestBid > 0) {
-    totalWeight += bidWeight;
-    totalValue += bidWeight * parsedBestBid;
-  }
+//   if (parsedBestBid > 0) {
+//     totalWeight += bidWeight;
+//     totalValue += bidWeight * parsedBestBid;
+//   }
 
-  if (parsedBestAsk > 0) {
-    totalWeight += askWeight;
-    totalValue += askWeight * parsedBestAsk;
-  }
+//   if (parsedBestAsk > 0) {
+//     totalWeight += askWeight;
+//     totalValue += askWeight * parsedBestAsk;
+//   }
 
-  return (totalValue / totalWeight).toFixed(8);
-}
+//   return (totalValue / totalWeight).toFixed(8);
+// }
 
 function validateOrderSide(
   orderBook: idex.RestResponseGetOrderBookLevel2,
