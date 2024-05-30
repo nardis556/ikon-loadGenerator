@@ -124,6 +124,17 @@ function adjustValueToResolution(value, resolution) {
   const val = adjustedValue.toFixed(Math.max(decimalsToKeep, 0));
   return Number(val).toFixed(8);
 }
+
+let isTradingEnabled = true;
+
+async function checkAndPauseIfTradingDisabled() {
+  if (!isTradingEnabled) {
+    logger.error(`Trading disabled. Pausing trading operations.`);
+    await sleep(300000);
+    isTradingEnabled = true;
+  }
+}
+
 // async function execLoop(clients: { [key: string]: IClient }) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
@@ -134,9 +145,12 @@ async function execLoop(clients: { [key: string]: IClient }) {
     Number(process.env.UNDESIRED_STEP_SIZE) || 0.000666;
 
   while (true) {
+    await checkAndPauseIfTradingDisabled();
     try {
       for (const [accountKey, client] of Object.entries(clients)) {
+        await checkAndPauseIfTradingDisabled();
         for (const market of markets) {
+          await checkAndPauseIfTradingDisabled();
           const marketID = `${market.baseAsset}-${market.quoteAsset}`;
           try {
             let [openPositions, getOrders, orderBook] = await fetchData(
@@ -366,7 +380,7 @@ async function CreateOrder(
     );
     if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
       logger.error(`Trading disabled terminating process.`);
-      process.exit();
+      isTradingEnabled = false;
     }
     await sleep(1000);
   });
