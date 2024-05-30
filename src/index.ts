@@ -291,8 +291,8 @@ async function CreateOrder(
       )}`
     );
     if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
-      logger.error(`Trading disabled terminating process.`);
-      process.exit();
+      logger.error(`Trading disabled.`);
+      await sleep(120000);
     }
     await sleep(1000);
   });
