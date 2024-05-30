@@ -278,7 +278,7 @@ async function CreateOrder(
   accountKey: string,
   marketID: string
 ) {
-  logger.debug(orderParam);
+  logger.debug(JSON.stringify(orderParam, null, 2));
   client.RestAuthenticatedClient.createOrder({
     ...orderParam,
     ...client.getWalletAndNonce,
@@ -332,43 +332,10 @@ function createOrderParams(
     quantity:
       buyQuantity > Number(market.maximumPositionSize)
         ? market.maximumPositionSize
-        : adjustValueToResolution(parseFloat(sellQuantity), quantityResolution),
+        : adjustValueToResolution(parseFloat(buyQuantity), quantityResolution),
   };
   return { buyParams, sellParams };
 }
-
-function cancelUntil(accountKey: string, client: IClient) {
-  const cancelTimeout = parseInt(
-    (
-      (Math.random() > 0.5 ? 100000 : 0) +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 100000 +
-      Math.random() * 420 +
-      Math.random() * 69 +
-      Math.random() * 1337
-    ).toString()
-  );
-
-  logger.info(
-    `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
-  );
-
-  setTimeout(async () => {
-    try {
-      await client.RestAuthenticatedClient.cancelOrders({
-        ...client.getWalletAndNonce,
-      });
-      logger.info(`Cancelled orders for ${accountKey}.`);
-    } catch (e) {
-      logger.error(`Error cancelling orders for ${accountKey}`);
-    }
-  }, cancelTimeout);
-}
-
 async function CancelOrder(
   client: IClient,
   totalOrdersCount: number,
