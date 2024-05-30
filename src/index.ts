@@ -149,7 +149,9 @@ async function execLoop(
             const quantity = Number(market.makerOrderMinimum);
 
             const orderParams = generateOrderTemplate(
-              Number(market.indexPrice),
+              side === idex.OrderSide.buy
+                ? Number(market.indexPrice) * 0.99999999
+                : Number(market.indexPrice) * 1.00000001,
               quantity,
               Number(market.takerOrderMinimum),
               market.quantityRes,
