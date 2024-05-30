@@ -476,7 +476,7 @@ async function CreateOrder(
     );
     if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
       logger.error(`Trading disabled terminating process.`);
-      await setTimeout(120000);
+      process.exit();
     }
     await setTimeout(1000);
   });
