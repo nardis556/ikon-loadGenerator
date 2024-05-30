@@ -23,19 +23,19 @@ function randomDustQuantity(
     default:
       throw new Error("Unsupported order type");
   }
-  switch (market) {
-    case "BTC-USD":
-      minFactor = 4;
-    case "ETH-USD":
-      minFactor = 3;
-    case "IDEX-USD":
-      minFactor = 3;
-    case "SOL-USD":
-      minFactor = 3;
-      break;
-    default:
-      minFactor == minFactor;
-  }
+  // switch (market) {
+  //   case "BTC-USD":
+  //     minFactor = 4;
+  //   case "ETH-USD":
+  //     minFactor = 3;
+  //   case "IDEX-USD":
+  //     minFactor = 3;
+  //   case "SOL-USD":
+  //     minFactor = 3;
+  //     break;
+  //   default:
+  //     minFactor == minFactor;
+  // }
 
   switch (resolution) {
     case "0.00000001":
@@ -80,7 +80,6 @@ function randomDustQuantity(
   do {
     variation = Math.random() * (maxVariation * 2) - maxVariation;
     randomizedValue = value * (minFactor + variation / value);
-
   } while (randomizedValue < 0 || Math.abs(variation) > maxVariation);
 
   const factor = Math.pow(10, decimalsToKeep);
@@ -247,11 +246,11 @@ function orderSelection(
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
-          (Number(process.env.QUANTITY_ALPHA_FACTOR)) *
+          Number(process.env.QUANTITY_ALPHA_FACTOR) *
           (1 *
             (1 +
               Math.floor(
-                Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR))
+                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
               ))),
         quantityRes,
         market,
