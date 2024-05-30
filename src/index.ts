@@ -220,15 +220,19 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 ...client.getWalletAndNonce,
               })
             );
-            await sleep(5000);
+            process.env.COOLDOWN === "true" &&
+              (await sleep(Number(process.env.COOLDOWN_PER_ORDER) * 1000));
           } catch (e) {
             logger.error(
               `Error handling market operations for ${accountKey} on market ${marketID}: ${e.message}`
             );
             await sleep(2000);
           }
-          await sleep(2000);
+          process.env.COOLDOWN === "true" &&
+            (await sleep(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
         }
+        process.env.COOLDOWN === "true" &&
+          (await sleep(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
       }
     } catch (e) {
       logger.error(`Error fetching markets: ${e.message}`);
