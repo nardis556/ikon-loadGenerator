@@ -240,7 +240,8 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 break;
               }
 
-              await sleep(333);
+              process.env.COOLDOWN === "true" &&
+                (await sleep(Number(process.env.COOLDOWN_PER_ORDER) * 1000));
             }
             logger.info(
               `Processed loop for ${accountKey} on market ${marketID}`
@@ -251,8 +252,11 @@ async function execLoop(clients: { [key: string]: IClient }) {
             );
             await sleep(2000);
           }
-          await sleep(2000);
+          process.env.COOLDOWN === "true" &&
+            (await sleep(Number(process.env.COOLDOWN_PER_MARKET) * 1000));
         }
+        process.env.COOLDOWN === "true" &&
+          (await sleep(Number(process.env.COOLDOWN_PER_ACCOUNT) * 1000));
         cancelUntil(accountKey, client);
       }
     } catch (e) {
@@ -283,7 +287,7 @@ function createOrderParams(
       parseFloat(market.makerOrderMinimum) * 10,
       quantityResolution
     ),
-    timeInForce: idex.TimeInForce.gtx
+    timeInForce: idex.TimeInForce.gtx,
   };
 
   const sellParams = {
