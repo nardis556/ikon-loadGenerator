@@ -287,7 +287,7 @@ function createOrderParams(
       parseFloat(market.makerOrderMinimum) * 10,
       quantityResolution
     ),
-    selfTradePrevention: idex.SelfTradePrevention.cb,
+    // selfTradePrevention: idex.SelfTradePrevention.cb,
     // timeInForce: idex.TimeInForce.gtx,
   };
 
