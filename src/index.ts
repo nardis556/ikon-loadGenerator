@@ -315,14 +315,14 @@ function createOrderParams(
   quantity: number,
   market: ExtendedIDEXMarket
 ) {
-  side === "buy" ? (price = price * 1.00000001) : (price = price * 0.99999999);
+  side === "buy" ? (price = price * 1.000001) : (price = price * 0.999999);
   let setQuantity: string;
   switch (true) {
     case quantity > Number(market.maximumPositionSize):
       setQuantity = market.maximumPositionSize;
       break;
     case quantity < Number(market.makerOrderMinimum):
-      setQuantity = market.minimumPositionSize;
+      setQuantity = market.makerOrderMinimum;
       break;
     default:
       setQuantity = adjustValueToResolution(quantity, market.quantityRes);
