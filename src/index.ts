@@ -287,6 +287,7 @@ function createOrderParams(
       parseFloat(market.makerOrderMinimum) * 10,
       quantityResolution
     ),
+    selfTradePrevention: idex.SelfTradePrevention.cb,
     // timeInForce: idex.TimeInForce.gtx,
   };
 
@@ -304,7 +305,7 @@ function createOrderParams(
 }
 
 function cancelUntil(accountKey: string, client: IClient) {
-  const cancelTimeout = 180000
+  const cancelTimeout = 180000;
 
   logger.info(
     `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
