@@ -284,7 +284,8 @@ function createOrderParams(
     side: "buy",
     price: buyPrice,
     quantity: adjustValueToResolution(
-      parseFloat(market.makerOrderMinimum) * 10,
+      parseFloat(market.makerOrderMinimum) *
+        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 5),
       quantityResolution
     ),
     // selfTradePrevention: idex.SelfTradePrevention.cb,
@@ -297,7 +298,8 @@ function createOrderParams(
     side: "sell",
     price: sellPrice,
     quantity: adjustValueToResolution(
-      parseFloat(market.makerOrderMinimum) * 10,
+      parseFloat(market.makerOrderMinimum) *
+        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 5),
       quantityResolution
     ),
   };
