@@ -6,23 +6,23 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 function randomDustQuantity(
   values: number,
   resolution: string,
-  market: string,
-  type
+  market: string
+  // type
 ) {
   let decimalsToKeep = 0;
   let percentageVariation = 20;
   let minFactor = 1;
   let value = values;
-  switch (type) {
-    case "limit":
-      value * 1.33333333;
-      break;
-    case "market":
-      value = values;
-      break;
-    default:
-      throw new Error("Unsupported order type");
-  }
+  // switch (type) {
+  //   case "limit":
+  //     value * 1.33333333;
+  //     break;
+  //   case "market":
+  //     value = values;
+  //     break;
+  //   default:
+  //     throw new Error("Unsupported order type");
+  // }
   // switch (market) {
   //   case "BTC-USD":
   //     minFactor = 4;
@@ -179,6 +179,8 @@ export function generateOrderTemplate(
     let adjustedPrice =
       midPrice + i * priceIncrement * (side === "sell" ? 1 : -1);
 
+    // TODO - move price variation depending on the side to this function isntead of index
+    // ------ index already processes price variation from index depending on the side
     if (side === "buy") {
       adjustedPrice = Math.max(lowerBound, Math.min(adjustedPrice, midPrice));
     } else {
@@ -228,14 +230,9 @@ function orderSelection(
       quantity: randomDustQuantity(
         Number(takerOrderMinimum) *
           Number(process.env.QUANTITY_ALPHA_FACTOR) *
-          (1 *
-            (1 +
-              Math.floor(
-                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-              ))),
+          Number(process.env.QUANTITY_BETA_FACTOR),
         quantityRes,
-        market,
-        "limit"
+        market
       ),
       price: randomDust(adjustedPrice, priceRes),
     };
@@ -245,16 +242,10 @@ function orderSelection(
       side: side,
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
-        Number(takerOrderMinimum) *
-          Number(process.env.QUANTITY_ALPHA_FACTOR) *
-          (1 *
-            (1 +
-              Math.floor(
-                Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-              ))),
+        Number(takerOrderMinimum) * Number(process.env.QUANTITY_ALPHA_FACTOR), //*
+        // Number(process.env.QUANTITY_BETA_FACTOR),
         quantityRes,
-        market,
-        "market"
+        market
       ),
     };
   } else {
@@ -272,16 +263,10 @@ function orderSelection(
             ? idex.OrderType.stopLossMarket
             : idex.OrderType.takeProfitMarket,
         quantity: randomDustQuantity(
-          Number(takerOrderMinimum) *
-            (Number(process.env.QUANTITY_ALPHA_FACTOR) / 3) *
-            (1 *
-              (1 +
-                Math.floor(
-                  Math.random() * (Number(process.env.QUANTITY_BETA_FACTOR) / 3)
-                ))),
+          Number(takerOrderMinimum) * Number(process.env.QUANTITY_ALPHA_FACTOR), //*
+          // Number(process.env.QUANTITY_BETA_FACTOR),
           quantityRes,
-          market,
-          "market"
+          market
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
@@ -298,14 +283,9 @@ function orderSelection(
         quantity: randomDustQuantity(
           Number(takerOrderMinimum) *
             Number(process.env.QUANTITY_ALPHA_FACTOR) *
-            (1 *
-              (1 +
-                Math.floor(
-                  Math.random() * Number(process.env.QUANTITY_BETA_FACTOR)
-                ))),
+            Number(process.env.QUANTITY_BETA_FACTOR),
           quantityRes,
-          market,
-          "limit"
+          market
         ),
         price: randomDust(adjustedPrice, priceRes),
         triggerPrice: randomDust(triggerPrice, priceRes),
