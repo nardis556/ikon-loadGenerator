@@ -316,16 +316,25 @@ function createOrderParams(
   market: ExtendedIDEXMarket
 ) {
   side === "buy" ? (price = price * 1.00000001) : (price = price * 0.99999999);
+  let setQuantity: string;
+  switch (true) {
+    case quantity > Number(market.maximumPositionSize):
+      setQuantity = market.maximumPositionSize;
+      break;
+    case quantity < Number(market.makerOrderMinimum):
+      setQuantity = market.minimumPositionSize;
+      break;
+    default:
+      setQuantity = adjustValueToResolution(quantity, market.quantityRes);
+      break;
+  }
 
   const params = {
     market: marketId,
     type: "limit",
     side: side,
     price: adjustValueToResolution(price.toString(), market.priceRes),
-    quantity:
-      quantity > Number(market.maximumPositionSize)
-        ? market.maximumPositionSize
-        : adjustValueToResolution(quantity, market.quantityRes),
+    quantity: setQuantity,
     timeInForce: idex.TimeInForce.ioc,
   };
   return { params };
