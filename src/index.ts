@@ -211,22 +211,22 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 sellPrice
               );
 
-              // logger.debug(`Buy: ${buyPrice}, Sell: ${sellPrice}`);
-              // logger.debug(`INDEX PRICE: ${indexPrice}`);
-              // logger.debug(`Buy: ${buyPrice} | Sell: ${sellPrice}`);
-              // logger.debug(
-              //   `Quantity: ${buyParams.quantity} | ${sellParams.quantity}`
-              // );
-              // logger.debug(
-              //   `Buy price diff from indexPrice: ${
-              //     indexPrice - buyParams.price
-              //   }`
-              // );
-              // logger.debug(
-              //   `Sell price diff from indexPrice: ${
-              //     sellParams.price - indexPrice
-              //   }`
-              // );
+              logger.debug(`Buy: ${buyPrice}, Sell: ${sellPrice}`);
+              logger.debug(`INDEX PRICE: ${indexPrice}`);
+              logger.debug(`Buy: ${buyPrice} | Sell: ${sellPrice}`);
+              logger.debug(
+                `Quantity: ${buyParams.quantity} | ${sellParams.quantity}`
+              );
+              logger.debug(
+                `Buy price diff from indexPrice: ${
+                  indexPrice - buyParams.price
+                }`
+              );
+              logger.debug(
+                `Sell price diff from indexPrice: ${
+                  sellParams.price - indexPrice
+                }`
+              );
 
               if (totalOrders < Number(process.env.OPEN_ORDERS)) {
                 await CreateOrder(client, buyParams, accountKey, marketID);
@@ -320,7 +320,7 @@ function cancelUntil(accountKey: string, client: IClient) {
       });
       logger.info(`Cancelled orders for ${accountKey}.`);
     } catch (e) {
-      logger.debug(JSON.stringify(e, null, 2));
+      // logger.error(JSON.stringify(e.reponse ? e.reponse.data : e, null, 2));
       logger.error(`Error cancelling orders for ${accountKey}`);
     }
   }, cancelTimeout);
