@@ -190,16 +190,48 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 lastBuyPrice = buyPrice;
                 lastSellPrice = sellPrice;
               } else {
+                const adjustedBuyDifference = parseFloat(
+                  (indexPrice * orderStepSize).toFixed(
+                    priceResolution.length - 2
+                  )
+                );
+                const adjustedSellDifference = parseFloat(
+                  (indexPrice * orderStepSize).toFixed(
+                    priceResolution.length - 2
+                  )
+                );
+
                 buyPrice = adjustValueToResolution(
-                  parseFloat(lastBuyPrice.toString()) -
-                    indexPrice * orderStepSize,
+                  parseFloat(lastBuyPrice.toString()) - adjustedBuyDifference,
                   priceResolution
                 );
                 sellPrice = adjustValueToResolution(
-                  parseFloat(lastSellPrice.toString()) +
-                    indexPrice * orderStepSize,
+                  parseFloat(lastSellPrice.toString()) + adjustedSellDifference,
                   priceResolution
                 );
+
+                if (buyPrice === lastBuyPrice && adjustedBuyDifference !== 0) {
+                  buyPrice = parseFloat(
+                    (
+                      lastBuyPrice -
+                      Math.sign(adjustedBuyDifference) *
+                        Math.pow(10, -priceResolution.length + 2)
+                    ).toFixed(priceResolution.length - 2)
+                  );
+                }
+                if (
+                  sellPrice === lastSellPrice &&
+                  adjustedSellDifference !== 0
+                ) {
+                  sellPrice = parseFloat(
+                    (
+                      lastSellPrice +
+                      Math.sign(adjustedSellDifference) *
+                        Math.pow(10, -priceResolution.length + 2)
+                    ).toFixed(priceResolution.length - 2)
+                  );
+                }
+
                 lastBuyPrice = buyPrice;
                 lastSellPrice = sellPrice;
               }
