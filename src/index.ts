@@ -233,9 +233,11 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 await CreateOrder(client, sellParams, accountKey, marketID);
                 totalOrders += 2;
               } else {
-                await client.RestAuthenticatedClient.cancelOrders({
-                  ...client.getWalletAndNonce,
-                  market: marketID,
+                await retry(() => {
+                  return client.RestAuthenticatedClient.cancelOrders({
+                    ...client.getWalletAndNonce,
+                    market: marketID,
+                  });
                 });
                 break;
               }
@@ -315,8 +317,10 @@ function cancelUntil(accountKey: string, client: IClient) {
 
   setTimeout(async () => {
     try {
-      await client.RestAuthenticatedClient.cancelOrders({
-        ...client.getWalletAndNonce,
+      retry(() => {
+        return client.RestAuthenticatedClient.cancelOrders({
+          ...client.getWalletAndNonce,
+        });
       });
       logger.info(`Cancelled orders for ${accountKey}.`);
     } catch (e) {
@@ -377,6 +381,11 @@ async function CreateOrder(
     if (e.response?.data && e.response?.data.code === "TRADING_DISABLED") {
       logger.error(`Trading disabled terminating process.`);
       isTradingEnabled = false;
+    } else if (
+      e.response?.data &&
+      e.response?.data.code === "MAXIMUM_POSITION_SIZE_EXCEEDED"
+    ) {
+      logger.error(`Maximum position size exceeded.`);
     }
     await sleep(1000);
   });
