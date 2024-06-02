@@ -321,7 +321,7 @@ function cancelUntil(accountKey: string, client: IClient) {
       logger.info(`Cancelled orders for ${accountKey}.`);
     } catch (e) {
       logger.error(`Error cancelling orders for ${accountKey}`);
-      logger.error(JSON.stringify(e.reponse ? e.reponse.data : e, null, 2));
+      e.reponse && logger.error(e.response.data ? e.response.data : e.response);
     }
   }, cancelTimeout);
 }
