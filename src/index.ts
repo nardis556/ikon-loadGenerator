@@ -127,14 +127,15 @@ function adjustValueToResolution(value, resolution) {
 
 let isTradingEnabled = true;
 
+const reviveBotAfter = Number(process.env.REVIVE_BOT_AFTER) || 180000;
+
 async function checkAndPauseIfTradingDisabled() {
   if (!isTradingEnabled) {
     logger.error(`Trading disabled. Pausing trading operations.`);
-    await sleep(180000);
+    await sleep(reviveBotAfter);
     isTradingEnabled = true;
   }
 }
-
 // async function execLoop(clients: { [key: string]: IClient }) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
