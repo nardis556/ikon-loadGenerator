@@ -310,7 +310,7 @@ function createOrderParams(
 }
 
 function cancelUntil(accountKey: string, client: IClient) {
-  const cancelTimeout = 180000;
+  const cancelTimeout = (Number(process.env.CANCEL_TIMEOUT) * 1000) | 180000;
 
   logger.info(
     `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
