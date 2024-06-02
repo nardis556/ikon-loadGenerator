@@ -212,22 +212,22 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 sellPrice
               );
 
-              // logger.debug(`Buy: ${buyPrice}, Sell: ${sellPrice}`);
-              // logger.debug(`INDEX PRICE: ${indexPrice}`);
-              // logger.debug(`Buy: ${buyPrice} | Sell: ${sellPrice}`);
-              // logger.debug(
-              //   `Quantity: ${buyParams.quantity} | ${sellParams.quantity}`
-              // );
-              // logger.debug(
-              //   `Buy price diff from indexPrice: ${
-              //     indexPrice - buyParams.price
-              //   }`
-              // );
-              // logger.debug(
-              //   `Sell price diff from indexPrice: ${
-              //     sellParams.price - indexPrice
-              //   }`
-              // );
+              logger.debug(`Buy: ${buyPrice}, Sell: ${sellPrice}`);
+              logger.debug(`INDEX PRICE: ${indexPrice}`);
+              logger.debug(`Buy: ${buyPrice} | Sell: ${sellPrice}`);
+              logger.debug(
+                `Quantity: ${buyParams.quantity} | ${sellParams.quantity}`
+              );
+              logger.debug(
+                `Buy price diff from indexPrice: ${
+                  indexPrice - buyParams.price
+                }`
+              );
+              logger.debug(
+                `Sell price diff from indexPrice: ${
+                  sellParams.price - indexPrice
+                }`
+              );
 
               if (totalOrders < Number(process.env.OPEN_ORDERS)) {
                 await CreateOrder(client, buyParams, accountKey, marketID);
@@ -288,7 +288,7 @@ function createOrderParams(
     price: buyPrice,
     quantity: adjustValueToResolution(
       parseFloat(market.makerOrderMinimum) *
-        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 5),
+        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 10),
       quantityResolution
     ),
     // selfTradePrevention: idex.SelfTradePrevention.cb,
@@ -302,7 +302,7 @@ function createOrderParams(
     price: sellPrice,
     quantity: adjustValueToResolution(
       parseFloat(market.makerOrderMinimum) *
-        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 5),
+        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 10),
       quantityResolution
     ),
   };
