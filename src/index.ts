@@ -130,7 +130,7 @@ let isTradingEnabled = true;
 async function checkAndPauseIfTradingDisabled() {
   if (!isTradingEnabled) {
     logger.error(`Trading disabled. Pausing trading operations.`);
-    await sleep(300000);
+    await sleep(180000);
     isTradingEnabled = true;
   }
 }
