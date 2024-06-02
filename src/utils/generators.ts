@@ -235,6 +235,7 @@ function orderSelection(
         market
       ),
       price: randomDust(adjustedPrice, priceRes),
+      selfTradePrevention: "cb",
     };
   } else if (random < weights.limit + weights.market) {
     order = {
@@ -248,6 +249,7 @@ function orderSelection(
         quantityRes,
         market
       ),
+      selfTradePrevention: "cb",
     };
   } else {
     const triggerPriceModifier = Math.random() > 0.5 ? 1 : -1;
@@ -273,6 +275,7 @@ function orderSelection(
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
           Math.random() > 0.5 ? idex.TriggerType.last : idex.TriggerType.index,
+        selfTradePrevention: "cb",
       };
     } else {
       order = {
@@ -293,6 +296,7 @@ function orderSelection(
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
           Math.random() > 0.5 ? idex.TriggerType.last : idex.TriggerType.index,
+        selfTradePrevention: "cb",
       };
     }
   }
