@@ -78,12 +78,12 @@ async function fetchData(client: IClient, marketID: string): Promise<any> {
 
 let isTradingEnabled = true;
 
-const reviveBotAfter = Number(process.env.REVIVE_BOT_AFTER) || 180000;
+const reviveBotAfter = Number(process.env.REVIVE_BOT_AFTER) || 180;
 
 async function checkAndPauseIfTradingDisabled() {
   if (!isTradingEnabled) {
     logger.error(`Trading disabled. Pausing trading operations.`);
-    await sleep(reviveBotAfter);
+    await sleep(reviveBotAfter * 1000);
     isTradingEnabled = true;
   }
 }
