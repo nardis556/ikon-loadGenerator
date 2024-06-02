@@ -6,12 +6,12 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env.ORDERS") });
 function randomDustQuantity(
   values: number,
   resolution: string,
-  market: string
-  // type
+  market: string,
+  type: string
 ) {
   let decimalsToKeep = 0;
   let percentageVariation = 20;
-  let minFactor = 1;
+  let minFactor = 2;
   let value = values;
   // switch (type) {
   //   case "limit":
@@ -23,19 +23,19 @@ function randomDustQuantity(
   //   default:
   //     throw new Error("Unsupported order type");
   // }
-  // switch (market) {
-  //   case "BTC-USD":
-  //     minFactor = 4;
-  //   case "ETH-USD":
-  //     minFactor = 3;
-  //   case "IDEX-USD":
-  //     minFactor = 3;
-  //   case "SOL-USD":
-  //     minFactor = 3;
-  //     break;
-  //   default:
-  //     minFactor == minFactor;
-  // }
+  switch (market) {
+    case "BTC-USD":
+      minFactor = 4;
+    case "ETH-USD":
+      minFactor = 3;
+    case "IDEX-USD":
+      minFactor = 3;
+    case "SOL-USD":
+      minFactor = 2.5;
+      break;
+    default:
+      minFactor == minFactor;
+  }
 
   switch (resolution) {
     case "0.00000001":
@@ -232,7 +232,8 @@ function orderSelection(
           ((1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)) *
             (1 + Math.random() * Number(process.env.QUANTITY_BETA_FACTOR))),
         quantityRes,
-        market
+        market,
+        "limit"
       ),
       price: randomDust(adjustedPrice, priceRes),
       selfTradePrevention: "cb",
@@ -247,7 +248,8 @@ function orderSelection(
           (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)), //*
         // Number(process.env.QUANTITY_BETA_FACTOR),
         quantityRes,
-        market
+        market,
+        "market"
       ),
       selfTradePrevention: "cb",
     };
@@ -270,7 +272,8 @@ function orderSelection(
             (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)), //*
           // Number(process.env.QUANTITY_BETA_FACTOR),
           quantityRes,
-          market
+          market,
+          "market"
         ),
         triggerPrice: randomDust(triggerPrice, priceRes),
         triggerType:
@@ -290,7 +293,8 @@ function orderSelection(
             ((1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)) *
               (1 + Math.random() * Number(process.env.QUANTITY_BETA_FACTOR))),
           quantityRes,
-          market
+          market,
+          "limit"
         ),
         price: randomDust(adjustedPrice, priceRes),
         triggerPrice: randomDust(triggerPrice, priceRes),
