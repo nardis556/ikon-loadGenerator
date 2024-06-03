@@ -152,7 +152,7 @@ async function execLoop(
             const orderParams = generateOrderTemplate(
               side === idex.OrderSide.buy
                 ? Number(market.indexPrice) * 0.999999
-                : Number(market.indexPrice) * 1.000000,
+                : Number(market.indexPrice) * 1.0,
               quantity,
               Number(market.takerOrderMinimum),
               market.quantityRes,
@@ -269,7 +269,7 @@ main().catch((error) => {
 });
 
 function cancelUntil(accountKey: string, client: IClient) {
-  const cancelTimeout = 180000
+  const cancelTimeout = (Number(process.env.CANCEL_TIMEOUT) * 1000) | 180000;
 
   logger.info(
     `Cancelling orders for ${accountKey} in ${cancelTimeout / 1000}s.`
@@ -277,12 +277,15 @@ function cancelUntil(accountKey: string, client: IClient) {
 
   setTimeout(async () => {
     try {
-      await client.RestAuthenticatedClient.cancelOrders({
-        ...client.getWalletAndNonce,
+      retry(() => {
+        return client.RestAuthenticatedClient.cancelOrders({
+          ...client.getWalletAndNonce,
+        });
       });
       logger.info(`Cancelled orders for ${accountKey}.`);
     } catch (e) {
       logger.error(`Error cancelling orders for ${accountKey}`);
+      e.reponse && logger.error(e.response.data ? e.response.data : e.response);
     }
   }, cancelTimeout);
 }
