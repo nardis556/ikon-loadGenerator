@@ -201,7 +201,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                   logger.debug(`Buy price same as last buy price`);
                   buyPrice = adjustValueToResolution(
                     parseFloat(lastBuyPrice.toString()) -
-                      indexPrice * (orderStepSize + 0.000001),
+                      indexPrice * (orderStepSize + 0.0001),
                     priceResolution
                   );
                 } while (buyPrice == lastBuyPrice);
@@ -218,7 +218,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                   logger.debug(`Sell price same as last sell price`);
                   sellPrice = adjustValueToResolution(
                     parseFloat(lastSellPrice.toString()) +
-                      indexPrice * (orderStepSize + 0.000001),
+                      indexPrice * (orderStepSize + 0.0001),
                     priceResolution
                   );
                 } while (sellPrice == lastSellPrice);
