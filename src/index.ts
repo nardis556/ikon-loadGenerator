@@ -195,29 +195,15 @@ async function execLoop(clients: { [key: string]: IClient }) {
                     indexPrice * orderStepSize,
                   priceResolution
                 );
-                if (buyPrice === lastBuyPrice) {
-                  buyPrice = adjustValueToResolution(
-                    parseFloat(lastBuyPrice.toString()) -
-                      (indexPrice * orderStepSize) / 2,
-                    priceResolution
-                  );
-                }
-
                 sellPrice = adjustValueToResolution(
                   parseFloat(lastSellPrice.toString()) +
                     indexPrice * orderStepSize,
                   priceResolution
                 );
-                if (sellPrice === lastSellPrice) {
-                  sellPrice = adjustValueToResolution(
-                    parseFloat(lastSellPrice.toString()) +
-                      (indexPrice * orderStepSize) / 2,
-                    priceResolution
-                  );
-                }
                 lastBuyPrice = buyPrice;
                 lastSellPrice = sellPrice;
               }
+
               const { buyParams, sellParams } = createOrderParams(
                 marketID,
                 buyPrice,
