@@ -195,12 +195,13 @@ async function execLoop(clients: { [key: string]: IClient }) {
                     indexPrice * orderStepSize,
                   priceResolution
                 );
+                lastBuyPrice = buyPrice;
 
                 do {
-                  logger.debug(`Buy price same as last buy price`)
+                  logger.debug(`Buy price same as last buy price`);
                   buyPrice = adjustValueToResolution(
                     parseFloat(lastBuyPrice.toString()) -
-                      indexPrice * orderStepSize,
+                      indexPrice * (orderStepSize + 0.000001),
                     priceResolution
                   );
                 } while (buyPrice == lastBuyPrice);
@@ -211,17 +212,16 @@ async function execLoop(clients: { [key: string]: IClient }) {
                   priceResolution
                 );
 
+                lastSellPrice = sellPrice;
+
                 do {
-                  logger.debug(`Sell price same as last sell price`)
+                  logger.debug(`Sell price same as last sell price`);
                   sellPrice = adjustValueToResolution(
                     parseFloat(lastSellPrice.toString()) +
-                      indexPrice * orderStepSize,
+                      indexPrice * (orderStepSize + 0.000001),
                     priceResolution
                   );
                 } while (sellPrice == lastSellPrice);
-
-                lastBuyPrice = buyPrice;
-                lastSellPrice = sellPrice;
               }
 
               const { buyParams, sellParams } = createOrderParams(
