@@ -204,6 +204,8 @@ export function generateOrderTemplate(
   return endpoints;
 }
 
+const quantityBaseFactor = Number(process.env.QUANTITY_BASE_FACTOR) || 25;
+
 function orderSelection(
   random: number,
   weights: {
@@ -228,9 +230,10 @@ function orderSelection(
       side: side,
       type: idex.OrderType.limit,
       quantity: randomDustQuantity(
-        Number(takerOrderMinimum) *
-          ((1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)) *
-            (1 + Math.random() * Number(process.env.QUANTITY_BETA_FACTOR))),
+        parseFloat(takerOrderMinimum.toString()) *
+          (quantityBaseFactor +
+            Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 2) +
+          Math.random() * Number(process.env.QUANTITY_BETA_FACTOR),
         quantityRes,
         market,
         "limit"
