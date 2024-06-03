@@ -197,6 +197,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 );
 
                 do {
+                  logger.debug(`Buy price same as last buy price`)
                   buyPrice = adjustValueToResolution(
                     parseFloat(lastBuyPrice.toString()) -
                       indexPrice * orderStepSize,
@@ -211,6 +212,7 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 );
 
                 do {
+                  logger.debug(`Sell price same as last sell price`)
                   sellPrice = adjustValueToResolution(
                     parseFloat(lastSellPrice.toString()) +
                       indexPrice * orderStepSize,
