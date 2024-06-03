@@ -300,6 +300,8 @@ main().catch((error) => {
   logger.error("Error during main function:", error);
 });
 
+const quantityBaseFactor = Number(process.env.QUANTITY_BASE_FACTOR) || 25;
+
 function createOrderParams(
   marketID: string,
   buyPrice: any,
@@ -314,7 +316,7 @@ function createOrderParams(
     price: buyPrice,
     quantity: adjustValueToResolution(
       parseFloat(market.makerOrderMinimum) *
-        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 10),
+        (quantityBaseFactor + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 2),
       quantityResolution
     ),
     // selfTradePrevention: idex.SelfTradePrevention.cb,
@@ -328,7 +330,7 @@ function createOrderParams(
     price: sellPrice,
     quantity: adjustValueToResolution(
       parseFloat(market.makerOrderMinimum) *
-        (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 10),
+        (quantityBaseFactor + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 2),
       quantityResolution
     ),
   };
