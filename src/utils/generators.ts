@@ -23,19 +23,19 @@ function randomDustQuantity(
   //   default:
   //     throw new Error("Unsupported order type");
   // }
-  switch (market) {
-    case "BTC-USD":
-      minFactor = 4;
-    case "ETH-USD":
-      minFactor = 3;
-    case "IDEX-USD":
-      minFactor = 3;
-    case "SOL-USD":
-      minFactor = 2.5;
-      break;
-    default:
-      minFactor == minFactor;
-  }
+  // switch (market) {
+  //   case "BTC-USD":
+  //     minFactor = 4;
+  //   case "ETH-USD":
+  //     minFactor = 3;
+  //   case "IDEX-USD":
+  //     minFactor = 3;
+  //   case "SOL-USD":
+  //     minFactor = 2.5;
+  //     break;
+  //   default:
+  //     minFactor == minFactor;
+  // }
 
   switch (resolution) {
     case "0.00000001":
@@ -232,8 +232,7 @@ function orderSelection(
       quantity: randomDustQuantity(
         parseFloat(takerOrderMinimum.toString()) *
           (quantityBaseFactor +
-            Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR) * 2) +
-          Math.random() * Number(process.env.QUANTITY_BETA_FACTOR),
+            Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)),
         quantityRes,
         market,
         "limit"
@@ -247,9 +246,10 @@ function orderSelection(
       side: side,
       type: idex.OrderType.market,
       quantity: randomDustQuantity(
-        Number(takerOrderMinimum) *
-          (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)), //*
-        // Number(process.env.QUANTITY_BETA_FACTOR),
+        parseFloat(takerOrderMinimum.toString()) *
+          (quantityBaseFactor +
+            Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)),
+
         quantityRes,
         market,
         "market"
@@ -271,9 +271,9 @@ function orderSelection(
             ? idex.OrderType.stopLossMarket
             : idex.OrderType.takeProfitMarket,
         quantity: randomDustQuantity(
-          Number(takerOrderMinimum) *
-            (1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)), //*
-          // Number(process.env.QUANTITY_BETA_FACTOR),
+          parseFloat(takerOrderMinimum.toString()) *
+            (quantityBaseFactor +
+              Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)),
           quantityRes,
           market,
           "market"
@@ -292,9 +292,9 @@ function orderSelection(
             ? idex.OrderType.stopLossLimit
             : idex.OrderType.takeProfitLimit,
         quantity: randomDustQuantity(
-          Number(takerOrderMinimum) *
-            ((1 + Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)) *
-              (1 + Math.random() * Number(process.env.QUANTITY_BETA_FACTOR))),
+          parseFloat(takerOrderMinimum.toString()) *
+            (quantityBaseFactor +
+              Math.random() * Number(process.env.QUANTITY_ALPHA_FACTOR)),
           quantityRes,
           market,
           "limit"
