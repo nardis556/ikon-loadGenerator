@@ -166,11 +166,17 @@ async function execLoop(clients: { [key: string]: IClient }) {
             let posQuantity = parseFloat(openPositions[0]?.quantity || "0");
             logger.debug(`Position Quantity for ${marketID}: ${posQuantity}`);
 
-            let lastBuyPrice = indexPrice;
-            let lastSellPrice = indexPrice;
+            let lastBuyPrice = adjustValueToResolution(
+              indexPrice,
+              priceResolution
+            );
+            let lastSellPrice = adjustValueToResolution(
+              indexPrice,
+              priceResolution
+            );
 
             for (let level = 0; level < numberOfLevels; level++) {
-              let buyPrice: any, sellPrice: any;
+              let buyPrice: string, sellPrice: string;
 
               if (level === 0) {
                 buyPrice = adjustValueToResolution(
@@ -190,38 +196,38 @@ async function execLoop(clients: { [key: string]: IClient }) {
                 lastBuyPrice = buyPrice;
                 lastSellPrice = sellPrice;
               } else {
-                buyPrice = adjustValueToResolution(
-                  parseFloat(lastBuyPrice.toString()) -
-                    indexPrice * orderStepSize,
-                  priceResolution
-                );
-                lastBuyPrice = buyPrice;
+                let previousBuyPrice = lastBuyPrice;
+                let previousSellPrice = lastSellPrice;
+                let buyPriceAdjustmentFactor = 0;
+                let sellPriceAdjustmentFactor = 0;
 
-                do {
-                  logger.debug(`Buy price same as last buy price`);
+                while (true) {
                   buyPrice = adjustValueToResolution(
-                    parseFloat(lastBuyPrice.toString()) -
-                      indexPrice * (orderStepSize + 0.0001),
+                    parseFloat(previousBuyPrice) -
+                      indexPrice *
+                        (orderStepSize + 0.00005 * buyPriceAdjustmentFactor),
                     priceResolution
                   );
-                } while (buyPrice == lastBuyPrice);
+                  if (buyPrice !== previousBuyPrice) {
+                    lastBuyPrice = buyPrice;
+                    break;
+                  }
+                  buyPriceAdjustmentFactor++;
+                }
 
-                sellPrice = adjustValueToResolution(
-                  parseFloat(lastSellPrice.toString()) +
-                    indexPrice * orderStepSize,
-                  priceResolution
-                );
-
-                lastSellPrice = sellPrice;
-
-                do {
-                  logger.debug(`Sell price same as last sell price`);
+                while (true) {
                   sellPrice = adjustValueToResolution(
-                    parseFloat(lastSellPrice.toString()) +
-                      indexPrice * (orderStepSize + 0.0001),
+                    parseFloat(previousSellPrice) +
+                      indexPrice *
+                        (orderStepSize + 0.00005 * sellPriceAdjustmentFactor),
                     priceResolution
                   );
-                } while (sellPrice == lastSellPrice);
+                  if (sellPrice !== previousSellPrice) {
+                    lastSellPrice = sellPrice;
+                    break;
+                  }
+                  sellPriceAdjustmentFactor++;
+                }
               }
 
               const { buyParams, sellParams } = createOrderParams(
