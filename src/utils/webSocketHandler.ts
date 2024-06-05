@@ -3,7 +3,7 @@ import { setTimeout } from "timers/promises";
 import { wsClient, ExtendedIDEXMarket } from "../init";
 import logger from "../utils/logger";
 
-class WebSocketHandler {
+export class WebSocketHandler {
   private ws: idex.WebSocketClient;
   private marketsSubscription: string[];
   private markets: ExtendedIDEXMarket[];
@@ -90,45 +90,8 @@ class WebSocketHandler {
           market.wsIndexPrice = message.data.indexPrice;
           market.bestAsk = message.data.askPrice;
           market.bestBid = message.data.bidPrice;
-          market.bestPrice = this.calculateBestPrice(
-            market.bestAsk,
-            market.bestBid,
-            market.wsIndexPrice
-          );
         }
       });
     }
-  }
-  private calculateBestPrice(
-    bestAsk: string,
-    bestBid: string,
-    indexPrice: string
-  ) {
-    const parsedBestBid = Number(bestBid) || 0;
-    const parsedBestAsk = Number(bestAsk) || 0;
-    const parsedIndexPrice = Number(indexPrice);
-
-    const bidWeight = Number(process.env.BEST_BID_WEIGHT) || 0.25;
-    const askWeight = Number(process.env.BEST_ASK_WEIGHT) || 0.25;
-    const indexWeight = Number(process.env.INDEX_PRICE_WEIGHT) || 0.5;
-
-    if (parsedBestBid === 0 && parsedBestAsk === 0) {
-      return parsedIndexPrice.toFixed(8);
-    }
-
-    let totalWeight = indexWeight;
-    let totalValue = indexWeight * parsedIndexPrice;
-
-    if (parsedBestBid > 0) {
-      totalWeight += bidWeight;
-      totalValue += bidWeight * parsedBestBid;
-    }
-
-    if (parsedBestAsk > 0) {
-      totalWeight += askWeight;
-      totalValue += askWeight * parsedBestAsk;
-    }
-
-    return (totalValue / totalWeight).toFixed(8);
   }
 }

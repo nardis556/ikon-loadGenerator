@@ -4,6 +4,7 @@ import { clientBuilder } from "./utils/clientBuilder";
 import * as idex from "@idexio/idex-sdk";
 import EventEmitter from "events";
 import { initClient } from "./init";
+import { WebSocketHandler } from "./utils/webSocketHandler";
 import { IClient } from "./utils/IAaccounts";
 import logger from "./utils/logger";
 import { retry } from "./utils/retry";
@@ -140,6 +141,11 @@ async function checkAndPauseIfTradingDisabled() {
 // async function execLoop(clients: { [key: string]: IClient }) {
 async function execLoop(clients: { [key: string]: IClient }) {
   let markets = await fetchMarkets();
+
+  // const websocket = new WebSocketHandler(
+  //   markets.map((m) => `${m.baseAsset}-${m.quoteAsset}`),
+  //   markets
+  // );
 
   while (true) {
     await checkAndPauseIfTradingDisabled();

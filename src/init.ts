@@ -6,6 +6,7 @@ import { IDEXMarket } from "@idexio/idex-sdk";
 import * as idex from "@idexio/idex-sdk";
 import { retry } from "./utils/retry.ts";
 import { ethers } from "ethers";
+import { WebSocketHandler } from "./utils/webSocketHandler.ts";
 import { AccountInfo } from "../src/utils/IAaccounts";
 import { IClient } from "../src/utils/IAaccounts";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
