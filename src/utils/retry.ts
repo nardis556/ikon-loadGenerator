@@ -40,7 +40,7 @@ export async function retry<T>(
 
   // await database.writeToErrorFromRetry(datetime, 9, error)
 
-  throw new Error(
+  logger.error(
     `Function failed after ${maxRetries} attempts. Last error: ${JSON.stringify(
       error,
       null,
