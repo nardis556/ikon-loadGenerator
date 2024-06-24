@@ -4,6 +4,7 @@ import { clientBuilder } from "./utils/clientBuilder.ts";
 import logger from "./utils/logger.ts";
 import { IDEXMarket } from "@idexio/idex-sdk";
 import * as idex from "@idexio/idex-sdk";
+import { setTimeout } from "timers/promises";
 import { retry } from "./utils/retry.ts";
 import { ethers } from "ethers";
 import { AccountInfo } from "../src/utils/IAaccounts";
@@ -114,60 +115,109 @@ export async function wsClient(): Promise<idex.WebSocketClient> {
   }
 }
 
+// export async function initializeAccounts(
+//   accounts: Record<string, AccountInfo>,
+//   clients: { [key: string]: IClient }
+// ) {
+//   const clientPromises: Promise<IClient>[] = [];
+//   const associatePromises: Promise<void>[] = [];
+
+//   for (const [accountKey, accountInfo] of Object.entries(accounts)) {
+//     const clientPromise = clientBuilder(
+//       accountInfo.apiKey,
+//       accountInfo.apiSecret,
+//       accountInfo.privateKey
+//     ).catch((e) => {
+//       logger.error(`Failed to build client for ${accountKey}: ${e.message}`);
+//       return null;
+//     });
+
+//     clientPromises.push(clientPromise);
+//   }
+
+//   const builtClients = await Promise.all(clientPromises);
+
+//   builtClients.forEach((client, index) => {
+//     if (client) {
+//       const accountKey = Object.keys(accounts)[index];
+//       const associatePromise = retry(() =>
+//         client.RestAuthenticatedClient.associateWallet({
+//           wallet: client.getWalletAndNonce.wallet,
+//           nonce: client.getWalletAndNonce.nonce,
+//         })
+//       )
+//         .then(() => {
+//           clients[accountKey] = client;
+//           logger.info(
+//             `Wallet successfully associated for ${accountKey} with wallet ${client.getWalletAndNonce.wallet}`
+//           );
+//         })
+//         .catch((e) => {
+//           logger.error(
+//             `Failed to associate wallet for ${accountKey}: ${e.message}`
+//           );
+//         });
+
+//       associatePromises.push(associatePromise);
+//     } else {
+//       logger.error(
+//         `Client creation failed for account ${
+//           Object.keys(accounts)[index]
+//         }, skipping wallet association.`
+//       );
+//     }
+//   });
+
+//   await Promise.all(associatePromises);
+// }
+
 export async function initializeAccounts(
   accounts: Record<string, AccountInfo>,
   clients: { [key: string]: IClient }
 ) {
-  const clientPromises: Promise<IClient>[] = [];
-  const associatePromises: Promise<void>[] = [];
-
   for (const [accountKey, accountInfo] of Object.entries(accounts)) {
-    const clientPromise = clientBuilder(
-      accountInfo.apiKey,
-      accountInfo.apiSecret,
-      accountInfo.privateKey
-    ).catch((e) => {
+    let client;
+    try {
+      client = await clientBuilder(
+        accountInfo.apiKey,
+        accountInfo.apiSecret,
+        accountInfo.privateKey
+      );
+    } catch (e) {
       logger.error(`Failed to build client for ${accountKey}: ${e.message}`);
-      return null;
-    });
+      continue;
+    }
 
-    clientPromises.push(clientPromise);
-  }
-
-  const builtClients = await Promise.all(clientPromises);
-
-  builtClients.forEach((client, index) => {
     if (client) {
-      const accountKey = Object.keys(accounts)[index];
-      const associatePromise = retry(() =>
+      try {
         client.RestAuthenticatedClient.associateWallet({
           wallet: client.getWalletAndNonce.wallet,
           nonce: client.getWalletAndNonce.nonce,
         })
-      )
-        .then(() => {
-          clients[accountKey] = client;
-          logger.info(
-            `Wallet successfully associated for ${accountKey} with wallet ${client.getWalletAndNonce.wallet}`
-          );
-        })
-        .catch((e) => {
-          logger.error(
-            `Failed to associate wallet for ${accountKey}: ${e.message}`
-          );
-        });
+          .then(() => {
+            clients[accountKey] = client;
+            logger.info(
+              `Wallet successfully associated for ${accountKey} with wallet ${client.getWalletAndNonce.wallet}`
+            );
+          })
+          .catch((e) => {
+            logger.error(
+              `Failed to associate wallet for ${accountKey}: ${e.message}`
+            );
+          });
 
-      associatePromises.push(associatePromise);
+        await setTimeout(200);
+      } catch (e) {
+        logger.error(
+          `Failed to process client for ${accountKey}: ${e.message}`
+        );
+      }
     } else {
       logger.error(
-        `Client creation failed for account ${
-          Object.keys(accounts)[index]
-        }, skipping wallet association.`
+        `Client creation failed for account ${accountKey}, skipping wallet association.`
       );
     }
-  });
-
-  await Promise.all(associatePromises);
+  }
 }
 
 export async function initializeCancels(
